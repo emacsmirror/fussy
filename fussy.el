@@ -969,7 +969,7 @@ rebuild it here. We could also try caching the pattern instead of creating it
 again."
   (cond
    ((eq fussy-filter-fn 'fussy-filter-flex)
-    ;; This comes from `completion-substring--all-completions'
+    ;; This comes from `fussy-emacs-legacy-completion-substring--all-completions'
     ;; Look at `fussy-filter-flex'.
     (let* ((basic-pattern (completion-basic--pattern
                            beforepoint afterpoint bounds))
@@ -978,7 +978,7 @@ again."
                       (cons 'prefix basic-pattern)))
            (pattern
             (completion-pcm--optimize-pattern
-             (completion-flex--make-flex-pattern pattern))))
+             (fussy-emacs-legacy-completion-flex--make-flex-pattern pattern))))
       pattern))
    (:default ;; `fussy-filter-default'
     (fussy-make-pcm-highlight-pattern
@@ -1098,10 +1098,10 @@ Use `orderless' for filtering by passing STRING, TABLE and PRED to
 Respect PRED and POINT.  The filter here is the same as in
 `completion-flex-all-completions'."
   (pcase-let ((`(,completions ,pattern ,prefix ,_suffix ,_carbounds)
-               (completion-substring--all-completions
+               (fussy-emacs-legacy-completion-substring--all-completions
                 string
                 table pred point
-                #'completion-flex--make-flex-pattern)))
+                #'fussy-emacs-legacy-completion-flex--make-flex-pattern)))
     (list completions pattern prefix)))
 
 (defun fussy-filter-default (string table pred point)
@@ -1171,14 +1171,14 @@ Respect BEFOREPOINT, AFTERPOINT, and BOUNDS."
   (when (fussy--use-pcm-highlight-p)
     ;; Note to self:
     ;; The way we create the pattern here can be found in
-    ;; `completion-substring--all-completions'.
+    ;; `fussy-emacs-legacy-completion-substring--all-completions'.
     (let* ((basic-pattern (completion-basic--pattern
                            beforepoint afterpoint bounds))
            (pattern (if (not (stringp (car basic-pattern)))
                         basic-pattern
                       (cons 'prefix basic-pattern))))
       (completion-pcm--optimize-pattern
-       (completion-flex--make-flex-pattern pattern)))))
+       (fussy-emacs-legacy-completion-flex--make-flex-pattern pattern)))))
 
 ;;
 ;; (@* "Pattern Compiler" )
@@ -1426,6 +1426,51 @@ highlighting."
     ;; Looks like the score is flipped for `hotfuzz'.
     ;; See `hotfuzz-all-completions'.
     (list (+ 10000 (- (hotfuzz--cost query str))))))
+
+;;; Legacy
+
+;; This package uses internal Emacs functions.  Some of these functions
+;; were modified in https://github.com/emacsmirror/emacs/commit/aa181cd35220,
+
+(defun fussy-emacs-legacy-completion-flex--make-flex-pattern (pattern)
+  "Convert PCM-style PATTERN into PCM-style flex pattern.
+
+This turns
+    (prefix \"foo\" point)
+into
+    (prefix \"f\" any \"o\" any \"o\" any point)
+which is at the core of flex logic.  The extra
+`any' is optimized away later on."
+  (mapcan (lambda (elem)
+            (if (stringp elem)
+                (mapcan (lambda (char)
+                          (list (string char) 'any))
+                        elem)
+              (list elem)))
+          pattern))
+
+(defun fussy-emacs-legacy-completion-substring--all-completions
+    (string table pred point &optional transform-pattern-fn)
+  "Match the presumed substring STRING to the entries in TABLE.
+Respect PRED and POINT.  The pattern used is a PCM-style
+substring pattern, but it be massaged by TRANSFORM-PATTERN-FN, if
+that is non-nil."
+  (let* ((beforepoint (substring string 0 point))
+         (afterpoint (substring string point))
+         (bounds (completion-boundaries beforepoint table pred afterpoint))
+         (suffix (substring afterpoint (cdr bounds)))
+         (prefix (substring beforepoint 0 (car bounds)))
+         (basic-pattern (completion-basic--pattern
+                         beforepoint afterpoint bounds))
+         (pattern (if (not (stringp (car basic-pattern)))
+                      basic-pattern
+                    (cons 'prefix basic-pattern)))
+         (pattern (completion-pcm--optimize-pattern
+                   (if transform-pattern-fn
+                       (funcall transform-pattern-fn pattern)
+                     pattern)))
+         (all (completion-pcm--all-completions prefix pattern table pred)))
+    (list all pattern prefix suffix (car bounds))))
 
 (provide 'fussy)
 ;;; fussy.el ends here
