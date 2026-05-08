@@ -1,0 +1,356 @@
+#+TITLE: fussy — Architecture Reference
+#+AUTHOR: James Nguyen
+#+STARTUP: overview
+#+OPTIONS: toc:3
+
+* About this file
+
+Canonical reference for *how fussy works today*.
+
+This file describes /implemented/ behavior only. When the implementation
+changes, update this file in the same commit.
+
+For sibling projects in the same scoring/completion stack, see:
+
+- [[https://github.com/dangduc/fzf-native/blob/HEAD/architecture.org][fzf-native/architecture.org]]
+  — the C scoring module fussy can dispatch to.
+- [[https://github.com/jojojames/fzf-async/blob/HEAD/architecture.org][fzf-async/architecture.org]]
+  — async shell-driven completion that *bypasses* fussy on purpose (it
+  has its own completion style that talks to fzf-native directly).
+
+* Place in the pipeline
+
+fussy is a *completion style*. It plugs into Emacs's
+=completion-styles-alist= and intercepts =all-completions= /
+=try-completion= calls during =completing-read=.
+
+#+begin_src
+  user types in minibuffer
+       │
+       ▼
+  ┌───────────────────────────────┐
+  │ Emacs completion machinery    │
+  │  - examines completion-styles │
+  │  - calls registered try / all-completions for each style │
+  └───────────────────────────────┘
+       │  fussy is registered:
+       │  (fussy fussy-try-completions fussy-all-completions)
+       ▼
+  ╔═══════════════════════════════════════════════════════╗
+  ║ fussy (this project)                                  ║
+  ║  - filter candidates                                  ║
+  ║  - score (via pluggable backend)                      ║
+  ║  - sort + tie-break                                   ║
+  ║  - highlight                                          ║
+  ╚═══════════════════════════════════════════════════════╝
+       │              ▲ fussy-score-fn dispatches to one of:
+       │              │   flx, fzf-native, fuz, hotfuzz, ...
+       │
+       ▼
+  candidates returned to completion framework
+       │
+       ▼
+  frontend (vertico, icomplete, ivy, default) renders
+#+end_src
+
+The pluggable backend is the interesting design choice. fussy itself
+doesn't know how to score — it knows how to *route*: how to obtain
+candidates from the collection, when to filter vs. cache, how to
+normalize the query, how to break ties, how to highlight matches.
+Anything that can map =(candidate, query) → (score, indices)= is a
+valid backend.
+
+* Public API
+
+| Function                             | Role                                                   |
+|--------------------------------------+--------------------------------------------------------|
+| =fussy-try-completions= (autoload)   | =try-completion= side. Delegates to =completion-flex-try-completion=. Registered in =completion-styles-alist=. |
+| =fussy-all-completions= (autoload)   | =all-completions= side. Outer wrapper that invokes =fussy-all-completions-v1= under =while-no-input=. |
+| =fussy-all-completions-v1=           | Core implementation. Filters, scores, sorts, highlights. |
+| =fussy-setup= (autoload)             | Activates fussy globally: pushes =fussy= onto =completion-styles=. |
+| =fussy-setup-fzf= / =fussy-setup-fuz=| Convenience wrappers that set the score-fn defcustom. |
+| =fussy-eglot-setup=                  | Adjusts eglot completion to play well with fussy.      |
+
+The two functions registered with Emacs are =fussy-try-completions=
+and =fussy-all-completions=. Everything else is implementation.
+
+* Data flow — when fussy is the active style
+
+#+begin_src
+  Emacs calls fussy-all-completions(string, table, pred, point)
+       │
+       ▼
+  ┌──────────────────────────────────────────────┐
+  │ wrap with while-no-input                     │
+  │ → call fussy-all-completions-v1              │
+  └──────────────────────────────────────────────┘
+       │
+       ▼
+  ┌──────────────────────────────────────────────┐
+  │ 1. completion-boundaries → prefix/infix/suffix│
+  └──────────────────────────────────────────────┘
+       │
+       ▼
+  ┌──────────────────────────────────────────────┐
+  │ 2. Cache lookup in fussy--all-cache          │
+  │    (only if fussy-use-cache is non-nil)      │
+  │    HIT  → skip filter, reuse candidates      │
+  │    MISS → continue                           │
+  └──────────────────────────────────────────────┘
+       │ MISS
+       ▼
+  ┌──────────────────────────────────────────────┐
+  │ 3. fussy-filter-fn (whittle the table down)  │
+  │    default: fussy-filter-flex                │
+  └──────────────────────────────────────────────┘
+       │
+       ▼
+  ┌──────────────────────────────────────────────┐
+  │ 4. fussy-normalize-query (split AND/OR terms)│
+  └──────────────────────────────────────────────┘
+       │
+       ▼
+  ┌──────────────────────────────────────────────┐
+  │ 5. fussy-score (loop over filtered cands)    │
+  │    each call → fussy-score-fn(cand, query)   │
+  │    → score + match indices                   │
+  │    → set 'completion-score text property     │
+  └──────────────────────────────────────────────┘
+       │
+       ▼
+  ┌──────────────────────────────────────────────┐
+  │ 6. drop scores < threshold                   │
+  │    (fussy-score-threshold-to-filter-alist)   │
+  └──────────────────────────────────────────────┘
+       │
+       ▼
+  ┌──────────────────────────────────────────────┐
+  │ 7. tie-break sort                            │
+  │    fussy-compare-same-score-fn               │
+  │    default: history-then-length              │
+  └──────────────────────────────────────────────┘
+       │
+       ▼
+  ┌──────────────────────────────────────────────┐
+  │ 8. fussy--highlight-collection               │
+  │    apply face properties at match indices    │
+  └──────────────────────────────────────────────┘
+       │
+       ▼
+  return  (candidates . base-size)
+#+end_src
+
+The =while-no-input= wrap on step 1 is critical: filtering and scoring
+millions of candidates can take meaningful time, and fussy must
+release the main thread the moment the user types another key.
+
+* Filtering — narrowing before scoring
+
+Filtering is intentionally separable from scoring. Several strategies
+ship; users pick via =fussy-filter-fn=:
+
+| Filter fn                  | What it does                                                         |
+|----------------------------+----------------------------------------------------------------------|
+| =fussy-filter-flex=        | Use Emacs's =completion-flex= machinery (the default).               |
+| =fussy-filter-default=     | Build a regex via =fussy-default-regex-fn= and pass to =all-completions=. |
+| =fussy-filter-by-scoring=  | Skip filtering — score every candidate. Slow but exhaustive.         |
+| =fussy-filter-orderless=   | Delegate to the =orderless= package's matchers.                      |
+
+Why filter before scoring: scoring is per-candidate work that scales
+with collection size. A cheap structural filter can drop 99% of
+candidates before the expensive scoring pass. The trade-off is recall —
+a too-strict filter can hide candidates the scorer would have ranked
+well.
+
+* Scoring — pluggable backend
+
+=fussy-score-fn= is a defcustom that names a function with the
+contract:
+
+#+begin_src elisp
+  (fn STR QUERY &optional CACHE) → (SCORE . INDICES) or NIL
+#+end_src
+
+The =CACHE= argument is backend-specific scratch state (some backends
+use it, some ignore it).
+
+** Built-in backend wrappers
+
+| =fussy-score-fn=              | Engine                          | Notes                                       |
+|-------------------------------+---------------------------------+---------------------------------------------|
+| =flx-score=                   | =flx= (Elisp)                   | Default. No native dependency.              |
+| =fussy-flx-rs-score=          | =flx-rs= (Rust)                 | Drop-in for flx, ~10× faster.               |
+| =fussy-fzf-native-score=      | =fzf-native= (C)                | One-candidate-at-a-time bridge to =fzf-native-score=. |
+| =fussy-fuz-score=             | =fuz= (Rust, skim)              | Rust scoring, single-cand.                  |
+| =fussy-fuz-score-all=         | =fuz= (Rust + rayon)            | Batch variant — see "all-fn" below.         |
+| =fussy-fuz-bin-score=         | =fuz-bin= (prebuilt binary)     | No Rust toolchain required.                 |
+| =fussy-liquidmetal-score=     | Quicksilver-style               | Pure Elisp.                                 |
+| =fussy-sublime-fuzzy-score=   | Sublime-Text algorithm          | Native module.                              |
+| =fussy-hotfuzz-score=         | =hotfuzz=                       | Boundary-aware scoring.                     |
+
+** Single-candidate vs. batch backends
+
+Some scoring engines expose a *batch* call (score N candidates in one
+trip across the FFI boundary). For those, =fussy-score-ALL-fn= is the
+relevant defcustom, called *instead of* the per-candidate loop. This
+is the call site fzf-native uses via =fzf-native-score-all= when wired
+up that way — it's much faster for large collections because the per-
+candidate Elisp ↔ C round-trip dominates otherwise.
+
+** Score validation
+
+After scoring, =fussy-valid-score-p= checks each candidate's score
+against an optional per-backend threshold (=fussy-score-threshold-
+to-filter-alist=). Below-threshold candidates are dropped.
+
+* Caching
+
+Caching exists because users typically *narrow* a query character by
+character — and most narrowing operations don't change the matching
+candidate set in a structural way. Re-running the filter from scratch
+each keystroke is wasteful.
+
+** What's cached
+
+- =fussy--all-cache= — a hash from query string → filtered candidates.
+- =fussy--hist-hash= — minibuffer history mapping (for tie-breaking).
+
+** Cache invalidation — special tokens
+
+The cache is *invalidated* whenever the query crosses a structural
+boundary. fussy treats these characters as boundaries:
+
+#+begin_src
+  space   /   ^   !   '   .   |   :
+#+end_src
+
+Examples:
+
+| Query transition         | Cache decision      | Why                                  |
+|--------------------------+---------------------+--------------------------------------|
+| =fo= → =foo=             | reuse cache         | Pure narrowing in the same term.     |
+| =fo= → =fo bar=          | invalidate (space)  | Adding a new AND-term restructures.  |
+| =fo= → =fo \vert b=      | invalidate (=\vert=)| Introduces an OR-clause: result set may *grow*. |
+| =foo= → =foo!=           | invalidate (=!=)    | Negation modifier.                   |
+| =~/=foo/= → =~/foo/b=    | invalidate (=/=)    | Path boundary.                       |
+
+** Caching is opt-in
+
+Caching is gated by =fussy-use-cache= (default =nil=). Users who run
+fussy across rapidly-changing collections (live process output, etc.)
+should leave it off; users with stable static collections benefit.
+
+* Large-collection optimization
+
+When the candidate count exceeds =fussy-max-candidate-limit= (default
+=30000=), fussy switches to a partial-scoring strategy:
+
+1. Pre-sort the collection by =fussy-max-limit-preferred-candidate-fn=
+   (history first, then length).
+2. Score only the top =fussy-percent-of-candidates-to-score= (default
+   =0.7=, i.e. 70%).
+3. Return scored candidates plus the leftover unscored tail.
+
+The point is that the user almost never cares about ranking the
+30001st-30000th candidate precisely. Scoring time grows linearly with
+collection size; this caps the worst case.
+
+* Highlighting
+
+=fussy-propertize-fn= controls match highlighting:
+
+| Value                                      | Behavior                                |
+|--------------------------------------------+-----------------------------------------|
+| =fussy-propertize-common-part= (default)   | Highlight the common-prefix region.     |
+| =fussy-propertize=                         | Use the match indices from the scorer.  |
+| =flx-propertize=                           | flx's per-character highlighter.        |
+| =nil=                                      | No highlighting (fastest).              |
+
+Match indices come back from the scorer as the =cdr= of its return
+value. =flx= returns indices natively; =fzf-native-score= returns
+=(score idx idx ...)=. Backends that don't compute indices return
+=(score)= and lose granular highlighting.
+
+* Tie-breaking
+
+When two candidates score equal, =fussy-compare-same-score-fn= breaks
+the tie. Default: =fussy-histlen->strlen<= — minibuffer history first
+(more recently used wins), then shorter strings first.
+
+The same function (or =fussy-default-sort-fn=) is used to sort the
+collection when no scoring is needed (e.g. empty query).
+
+* Query normalization — AND/OR
+
+=fussy-normalize-query= handles multi-term syntax:
+
+- Space (or =fussy-AND-component-separator= if customized) splits the
+  query into AND-terms.
+- A configurable OR separator (=fussy-OR-component-separator=, fzf-
+  native-only) splits into OR-clauses.
+
+The exact fzf-style syntax (=^=, =$=, =!=, ='=, =|=) is interpreted by
+the backend, not by fussy. fussy only segments and forwards.
+
+* Key defcustoms (concise)
+
+These shape the most common configuration choices. See the docstrings
+for the long form.
+
+| Variable                                 | Purpose                                                    |
+|------------------------------------------+------------------------------------------------------------|
+| =fussy-score-fn=                         | Per-candidate scorer. Default =flx-score=.                 |
+| =fussy-score-ALL-fn=                     | Batch scorer (used instead of the loop when set).          |
+| =fussy-filter-fn=                        | Pre-scoring filter. Default =fussy-filter-flex=.           |
+| =fussy-default-regex-fn=                 | Regex generator for =fussy-filter-default=.                |
+| =fussy-propertize-fn=                    | Match highlighter.                                         |
+| =fussy-compare-same-score-fn=            | Tie-breaker.                                               |
+| =fussy-default-sort-fn=                  | Sort when not scoring.                                     |
+| =fussy-max-query-length=                 | Skip scoring if query is longer than this.                 |
+| =fussy-max-candidate-limit=              | Threshold above which partial-scoring kicks in.            |
+| =fussy-percent-of-candidates-to-score=   | Fraction scored under partial-scoring (0.0–1.0).           |
+| =fussy-AND-component-separator=          | Override the default space separator.                      |
+| =fussy-OR-component-separator=           | OR token (fzf-native only).                                |
+| =fussy-use-cache=                        | Enable backspace/prefix cache.                             |
+| =fussy-ignore-case=                      | Case-insensitive matching.                                 |
+| =fussy-score-threshold-to-filter-alist=  | Per-backend score thresholds.                              |
+
+* Behavior reference (canonical input → output)
+
+** Empty query
+
+| Input                       | Output                                                     |
+|-----------------------------+------------------------------------------------------------|
+| =string=""=                 | =fussy-default-sort-fn= over the unfiltered table; no scoring. |
+
+** Cache hit (=fussy-use-cache= non-nil, no boundary token)
+
+| Input                                                | Output                              |
+|------------------------------------------------------+-------------------------------------|
+| =string= same prefix as cached entry, no boundary token introduced | Cached candidates reused, scoring re-run on the new (typically narrower) string |
+
+** Cache miss / invalidation
+
+| Trigger                            | Effect                                                |
+|------------------------------------+-------------------------------------------------------|
+| =string= introduces a boundary token (space, =/=, =^=, =!=, ='=, =.=, =\vert=, =:=) | Filter pass re-runs on the underlying table. |
+
+** Above the candidate limit
+
+| Input                                              | Output                                     |
+|----------------------------------------------------+--------------------------------------------|
+| =count(filtered) > fussy-max-candidate-limit=      | Sort by preferred fn; score top =fussy-percent-of-candidates-to-score=; return scored + unscored tail |
+
+** Below the score threshold
+
+| Input                                          | Output                          |
+|------------------------------------------------+---------------------------------|
+| Per-candidate score < threshold for the active backend | Candidate dropped from the result. |
+
+* References
+
+- =fussy.el= — the implementation.
+- =README.org= — user-facing setup and recommendations.
+- Sibling architecture docs:
+  [[https://github.com/dangduc/fzf-native/blob/HEAD/architecture.org][fzf-native/architecture.org]],
+  [[https://github.com/jojojames/fzf-async/blob/HEAD/architecture.org][fzf-async/architecture.org]].

@@ -570,6 +570,21 @@ For more information: https://github.com/abo-abo/swiper/issues/848#issuecomment-
 
 
 
+* Architecture
+
+For a deep dive into how ~fussy~ works internally — the
+~all-completions~ pipeline, filter / score / sort stages, pluggable
+backend dispatch, caching and special-token invalidation — see
+[[file:architecture.org][architecture.org]].
+
+When ~fzf-native~ is the active backend (~fussy-score-fn~ set to
+~fussy-fzf-native-score~ or via ~fussy-setup-fzf~), the C-side
+scoring details are documented in
+[[https://github.com/dangduc/fzf-native/blob/HEAD/architecture.org][fzf-native's architecture overview]].
+For an asynchronous, shell-streaming alternative that sidesteps
+~fussy~ entirely and talks to ~fzf-native~ directly, see
+[[https://github.com/jojojames/fzf-async/blob/HEAD/architecture.org][fzf-async]].
+
 * Contributing
 Set up ~eask~.
 #+begin_src sh :tangle yes
