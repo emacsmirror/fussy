@@ -624,9 +624,9 @@ Implement `all-completions' interface with additional fuzzy / `flx' scoring."
                  (substring afterpoint 0 (cdr bounds)))))
     (setf fussy--filtering-p (not (string= infix "")))
     (setf fussy--current-prefix prefix)
-    (if-let ((cached-all (and fussy-use-cache
-                              (cl-copy-list
-                               (gethash string fussy--all-cache)))))
+    (if-let* ((cached-all (and fussy-use-cache
+                               (cl-copy-list
+                                (gethash string fussy--all-cache)))))
         (progn
           (setf fussy--current-result cached-all)
           ;; (message "%s from hash with length %d"
