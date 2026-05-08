@@ -4,7 +4,7 @@
 
 ;; Author: James Nguyen <james@jojojames.com>
 ;; Version: 1.0
-;; Package-Requires: ((emacs "28.2") (flx "0.5") (compat "30.0.0.0"))
+;; Package-Requires: ((emacs "29.1") (flx "0.5") (compat "30.0.0.0"))
 ;; Keywords: matching
 ;; Homepage: https://github.com/jojojames/fussy
 
@@ -641,13 +641,13 @@ Implement `all-completions' interface with additional fuzzy / `flx' scoring."
            cached-all))
       (pcase-let*
           ((`(,all ,pattern ,_prefix)
-            (if-let ((cached-all
-                      (and
-                       (fussy--use-cache-instead-of-filter-p string)
-                       (cl-copy-list
-                        (gethash
-                         (substring string 0 (- (length string) 1))
-                         fussy--all-cache)))))
+            (if-let* ((cached-all
+                       (and
+                        (fussy--use-cache-instead-of-filter-p string)
+                        (cl-copy-list
+                         (gethash
+                          (substring string 0 (- (length string) 1))
+                          fussy--all-cache)))))
                 (let* ((_ (setf fussy--current-result cached-all))
                        (pattern (if (fussy--orderless-p)
                                     (fussy--recreate-orderless-pattern
@@ -1303,8 +1303,8 @@ Use `orderless' for filtering by passing STRING, TABLE and PRED to
              (fboundp 'orderless--compile))
     (pcase-let ((`(,prefix ,regexps ,ignore-case ,pred)
                  (orderless--compile string table pred)))
-      (when-let ((completions (orderless--filter
-                               prefix regexps ignore-case table pred)))
+      (when-let* ((completions (orderless--filter
+                                prefix regexps ignore-case table pred)))
         (list completions regexps prefix)))))
 
 (defun fussy-filter-flex (string table pred point)
