@@ -1,2 +1,5 @@
 /.eask/
 /dist/
+/.agent-shell/
+/project.org
+/fussy-pkg.el
