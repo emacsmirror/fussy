@@ -514,6 +514,40 @@ an optimized version that uses ~fussy~'s batch-scoring backends.
 For more information: https://github.com/abo-abo/swiper/issues/848#issuecomment-1143129670
 
 
+* fzf-async
+
+[[https://github.com/jojojames/fzf-async][fzf-async]] is the companion sibling project to ~fussy~. Where ~fussy~
+is a synchronous ~completion-style~ that works inside Emacs's standard
+completion machinery (=completing-read=, =completion-at-point=, etc.),
+~fzf-async~ takes a different approach: it streams candidates from
+long-running shell commands (=find=, =rg=, =git ls-files=, …) and scores
+them asynchronously, bypassing ~fussy~'s pipeline entirely via its own
+completion category.
+
+Both packages sit on top of [[https://github.com/dangduc/fzf-native][fzf-native]], which provides the shared
+C scoring engine:
+
+#+begin_src
+  ┌──────────────────┐    ┌────────────────────────────────┐
+  │ fussy            │    │ fzf-async                      │
+  │  sync, in-memory │    │  async, shell-streaming        │
+  │  completion-style│    │  own completion category       │
+  └────────┬─────────┘    └─────────────────┬──────────────┘
+           │                                │
+           │ fzf-native-score-all           │ fzf-native-async-*
+           │ (sync batch)                   │ (async streaming)
+           ▼                                ▼
+  ╔══════════════════════════════════════════════════════════╗
+  ║ fzf-native (C dynamic module)                            ║
+  ║   sync scoring + async reader/scorer threads             ║
+  ╚══════════════════════════════════════════════════════════╝
+#+end_src
+
+Use ~fussy~ when you want fuzzy scoring layered over standard Emacs
+completion (=M-x=, =find-file=, =completion-at-point=, and similar). Use
+~fzf-async~ when you want to stream results from an external tool like
+=find= or =rg= — searches where candidates arrive incrementally as a
+child process runs.
 
 * Architecture
 
@@ -522,13 +556,19 @@ For a deep dive into how ~fussy~ works internally — the
 backend dispatch, caching and special-token invalidation — see
 [[file:architecture.org][architecture.org]].
 
-When ~fzf-native~ is the active backend (~fussy-score-fn~ set to
-~fussy-fzf-native-score~ or via ~fussy-setup-fzf~), the C-side
-scoring details are documented in
-[[https://github.com/dangduc/fzf-native/blob/HEAD/architecture.org][fzf-native's architecture overview]].
-For an asynchronous, shell-streaming alternative that sidesteps
-~fussy~ entirely and talks to ~fzf-native~ directly, see
-[[https://github.com/jojojames/fzf-async/blob/HEAD/architecture.org][fzf-async]].
+The three sibling projects each have their own architecture reference:
+
+- [[file:architecture.org][fussy/architecture.org]] (this file) — the completion-style
+  pipeline: filter → score → sort → highlight.
+- [[https://github.com/dangduc/fzf-native/blob/HEAD/architecture.org][fzf-native/architecture.org]] — the C dynamic module underneath.
+  Covers sync single-candidate scoring, sync batch scoring (parallel
+  workers + counting sort), and the async streaming pipeline
+  (reader/scorer threads, arena allocator, LRU result cache).
+- [[https://github.com/jojojames/fzf-async/blob/HEAD/architecture.org][fzf-async/architecture.org]] — the companion sibling project.
+  Explains the async completing-read UX built on ~fzf-native~'s
+  streaming surface, the timer model, the passthrough completion style,
+  and why ~fzf-async~ deliberately routes around ~fussy~ via its own
+  completion category.
 
 * Contributing
 Set up ~eask~.
