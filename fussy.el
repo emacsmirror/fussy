@@ -1676,6 +1676,71 @@ This is to try to avoid a additional sort step."
 (declare-function "fuz-score-all-skim" "fuz")
 (declare-function "fuz-score-all-clangd" "fuz")
 
+;; `ivy' integration.
+(defvar ivy-flx-limit)
+(declare-function ivy--flx-candidate-string "ivy")
+
+;;;###autoload
+(defun fussy-ivy-sort (name candidates)
+  "Sort CANDIDATES by NAME using `fussy'.
+
+Designed to be used as an :override advice for `ivy--flx-sort'.
+It utilizes `fussy-score-ALL-fn' for batch scoring and respects
+`fussy' tie-breaking and normalization."
+  (if (or (null candidates)
+          (string= name "")
+          (string= name "^"))
+      candidates
+    (condition-case err
+        (let* ((flx-name (if (string-prefix-p "^" name) (substring name 1) name))
+               (query (fussy-normalize-query flx-name))
+               ;; Use a higher limit for fzf/fuz backends which handle batching.
+               (limit (if (or (fussy--fzf-p) (fussy--fuz-score-all-p))
+                          (length candidates)
+                        (min (length candidates)
+                             (or (and (boundp 'ivy-flx-limit) ivy-flx-limit) 200))))
+               (to-sort (cl-subseq candidates 0 limit))
+               (rest (cl-subseq candidates limit))
+               ;; Map from string representation to original candidates.
+               ;; We handle duplicates by keeping a list of candidates per string.
+               (map (make-hash-table :test 'equal)))
+          (dolist (c to-sort)
+            (let ((s (ivy--flx-candidate-string c)))
+              (push c (gethash s map))))
+
+          (let* ((strings (let (keys) (maphash (lambda (k _v) (push k keys)) map) keys))
+                 ;; `fussy-outer-score' handles batching and normalization.
+                 (scored (fussy-outer-score strings query)))
+
+            ;; If the backend didn't sort (like pure flx), sort it now.
+            (when (eq fussy-score-ALL-fn 'fussy-score)
+              (setq scored (fussy--sort scored)))
+
+            (let ((result '()))
+              (dolist (s scored)
+                (when-let* ((orig-cands (gethash s map)))
+                  (dolist (c (nreverse orig-cands))
+                    (push c result))
+                  (remhash s map)))
+              ;; Keep remaining candidates that didn't match fuzzy-score but might
+              ;; have matched ivy's re-builder.
+              (maphash (lambda (_k v)
+                         (dolist (c (nreverse v))
+                           (push c result)))
+                       map)
+              (nconc (nreverse result) rest))))
+      (error
+       (message "fussy-ivy-sort error: %S" err)
+       candidates))))
+
+;;;###autoload
+(defun fussy-ivy-setup ()
+  "Set up `fussy' for `ivy'."
+  (interactive)
+  (require 'ivy)
+  (advice-add 'ivy--flx-sort :override #'fussy-ivy-sort)
+  (setq ivy-re-builders-alist '((t . ivy--regex-fuzzy))))
+
 (defun fussy-flx-rs-score (str query &rest args)
   "Score STR for QUERY with ARGS using `flx-rs-score'."
   (require 'flx-rs)
