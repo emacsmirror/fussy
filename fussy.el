@@ -439,12 +439,15 @@ Functions in this list should match `fussy-score-fn'."
   :type '(list function)
   :group 'fussy)
 
-(defcustom fussy-fzf-native-highlight 200
+(defcustom fussy-fzf-native-highlight 25
   "Control C-layer match highlighting for fzf-native scoring.
 
 The C functions `fzf-native-score' and `fzf-native-score-all' read this
 variable directly via `symbol-value' and apply `completions-common-part'
 face to candidate strings.
+
+Default is 25 but this can easily be pushed to every candidate for tiny
+latency cost.
 
 Values:
   nil       — No highlighting.
@@ -454,7 +457,7 @@ Values:
   :type '(choice
           (const :tag "Disabled" nil)
           (const :tag "All candidates" t)
-          (integer :tag "Top N candidates" 200)))
+          (integer :tag "Top N candidates" 25)))
 
 (defcustom fussy-prefer-prefix t
   "When using `fussy-filter-default', whether to prefer infix or prefix.
