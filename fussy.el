@@ -439,6 +439,23 @@ Functions in this list should match `fussy-score-fn'."
   :type '(list function)
   :group 'fussy)
 
+(defcustom fussy-fzf-native-highlight 200
+  "Control C-layer match highlighting for fzf-native scoring.
+
+The C functions `fzf-native-score' and `fzf-native-score-all' read this
+variable directly via `symbol-value' and apply `completions-common-part'
+face to candidate strings.
+
+Values:
+  nil       — No highlighting.
+  t         — Highlight all matched candidates.
+  N (integer) — Highlight only the top N best-scoring candidates."
+  :group 'fussy
+  :type '(choice
+          (const :tag "Disabled" nil)
+          (const :tag "All candidates" t)
+          (integer :tag "Top N candidates" 200)))
+
 (defcustom fussy-prefer-prefix t
   "When using `fussy-filter-default', whether to prefer infix or prefix.
 
@@ -825,6 +842,7 @@ If `fussy-propertize-fn' is nil, no highlighting should take place."
   (and
    (not (fussy--use-pcm-highlight-p))
    (not (fussy--orderless-p))
+   (not (fussy--fzf-p))
    fussy-propertize-fn))
 
 (defun fussy-orderless--highlight-collection (regexps completions ignore-case)
@@ -1169,11 +1187,6 @@ again."
             (completion-pcm--optimize-pattern
              (fussy-emacs-legacy-completion-flex--make-flex-pattern pattern))))
       pattern))
-   ((and (eq fussy-filter-fn 'fussy-filter-by-scoring)
-         (fussy--fzf-p))
-    (fussy-make-fzf-highlight-pattern
-     (concat (substring beforepoint (car bounds))
-             (substring afterpoint 0 (cdr bounds)))))
    (:default ;; `fussy-filter-default'
     (fussy-make-pcm-highlight-pattern
      beforepoint afterpoint bounds))))
@@ -1200,14 +1213,16 @@ again."
   "Check if highlighting should use `completion-pcm--hilit-commonality'.
 
 Check if `fussy-score-fn' used doesn't return match indices.
-Check if `orderless' is being used."
+Check if `orderless' is being used.
+Check if `fzf' is being used (highlighting is done in the C layer)."
   (cond
    ;; If we're using `orderless' to filter, don't use pcm highlights because
    ;; `orderless' does it on its own.
    ((fussy--orderless-p) nil)
+   ;; fzf-native applies highlighting directly in the C layer when
+   ;; `fussy-fzf-native-highlight' is non-nil; never run pcm fallback.
+   ((fussy--fzf-p) nil)
    ((fussy--filter-by-scoring-p) t)
-   ;; `fussy-fzf-score' doesn't highlight on its own.
-   ((eq fussy-score-ALL-fn 'fussy-fzf-score) t)
    ;; These don't generate match indices to highlight at all so we should
    ;; highlight with `completion-pcm--hilit-commonality'.
    ((memq fussy-score-fn fussy-score-fns-without-indices) t)
@@ -1479,44 +1494,6 @@ hash-table-value is the associated value."
         ;; Note: `string' is already normalized in `fussy-filter-by-scoring'.
         (fussy-valid-score-p (funcall fussy-score-fn x string))
       t)))
-
-(defun fussy-make-fzf-highlight-pattern (infix)
-  "Create a pcm pattern based on fzf rules for highlighting.
-INFIX is the fzf query string."
-  (let ((tokens (split-string infix " " t))
-        (pattern (list 'prefix)))
-    (dolist (token tokens)
-      (cond
-       ;; inverse (skip for highlighting)
-       ((string-prefix-p "!" token) nil)
-       ;; OR operator (skip for highlighting to avoid breaking AND groups)
-       ((string= "|" token) nil)
-       ;; exact boundary-match (quoted both ends)
-       ((and (string-prefix-p "'" token)
-             (string-suffix-p "'" token)
-             (length> token 1))
-        (push 'any pattern)
-        (push (substring token 1 -1) pattern))
-       ;; exact-match (quoted)
-       ((string-prefix-p "'" token)
-        (push 'any pattern)
-        (push (substring token 1) pattern))
-       ;; prefix-exact-match
-       ((string-prefix-p "^" token)
-        (push 'any pattern)
-        (push (substring token 1) pattern))
-       ;; suffix-exact-match
-       ((string-suffix-p "$" token)
-        (push 'any pattern)
-        (push (substring token 0 -1) pattern))
-       ;; fuzzy
-       (t
-        (push 'any pattern)
-        (dolist (char (append token nil))
-          (push (string char) pattern)
-          (push 'any pattern))
-        (pop pattern)))) ;; remove last 'any
-    (completion-pcm--optimize-pattern (nreverse pattern))))
 
 (defun fussy-make-pcm-highlight-pattern (beforepoint afterpoint bounds)
   "Create flex pattern for highlighting.

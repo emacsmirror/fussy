@@ -426,18 +426,18 @@ Using https://github.com/jojojames/emacs-completion-bench
 
 | Style                                      | Time (s) | #GC | GC time (s) |   Rel |
 |--------------------------------------------+----------+-----+-------------+-------|
-| `basic` (sort-fn: off)                     | 0.063761 |   0 |    0.000000 |  1.00 |
-| `hotfuzz` (sort-fn: off)                   | 0.130336 |   0 |    0.000000 |  2.04 |
-| `fussy` / `fzf-score` / `default` (off)    | 0.186001 |   0 |    0.000000 |  2.92 |
-| `fussy` / `fzf-score` / `by-scoring` (off) | 0.289635 |   0 |    0.000000 |  4.54 |
-| `orderless` (off)                          | 0.325188 |   0 |    0.000000 |  5.10 |
-| `substring` (off)                          | 0.632855 |   0 |    0.000000 |  9.92 |
-| `fussy` / `fuz-bin` (on)                   | 0.635636 |   0 |    0.000000 |  9.97 |
-| `orderless` + `flex` (off)                 | 0.844695 |   0 |    0.000000 | 13.25 |
-| `fussy` / `fzf-native` (on)                | 0.855334 |   0 |    0.000000 | 13.42 |
-| `fussy` / `flx` (on)                       | 1.384747 |   2 |    0.177668 | 21.71 |
-| `flex` (off)                               | 1.957198 |   0 |    0.000000 | 30.69 |
-| `fussy` / `flx-rs` (on)                    | 4.017352 |   0 |    0.000000 | 63.00 |
+| `basic` (sort-fn: off)                     | 0.055501 |   0 |    0.000000 |  1.00 |
+| `hotfuzz` (sort-fn: off)                   | 0.117789 |   0 |    0.000000 |  2.12 |
+| `fussy` / `fzf-score` / `default` (off)    | 0.163742 |   0 |    0.000000 |  2.95 |
+| `fussy` / `fzf-score` / `by-scoring` (off) | 0.250570 |   0 |    0.000000 |  4.51 |
+| `orderless` (off)                          | 0.305891 |   0 |    0.000000 |  5.51 |
+| `orderless` + `flex` (off)                 | 0.305966 |   0 |    0.000000 |  5.51 |
+| `fussy` / `fuz-bin` (on)                   | 0.523295 |   0 |    0.000000 |  9.43 |
+| `fussy` / `fzf-native` (on)                | 0.690352 |   0 |    0.000000 | 12.44 |
+| `substring` (off)                          | 0.782974 |   0 |    0.000000 | 14.11 |
+| `fussy` / `flx` (on)                       | 0.989095 |   2 |    0.131571 | 17.82 |
+| `flex` (off)                               | 2.198458 |   0 |    0.000000 | 39.61 |
+| `fussy` / `flx-rs` (on)                    | 4.023574 |   0 |    0.000000 | 72.50 |
 
 * Integrations
 ** Eglot Integration
