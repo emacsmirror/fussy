@@ -67,6 +67,7 @@
 ;;; Code:
 
 (defvar fzf-native-case-mode)
+(defvar fzf-native-batch-highlight)
 (defvar ivy-re-builders-alist)
 
 ;;
