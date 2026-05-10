@@ -70,6 +70,7 @@
 (declare-function "orderless-highlight-matches" "orderless")
 (declare-function "orderless--prefix+pattern" "orderless")
 (defvar orderless-matching-styles)
+(defvar fzf-native-case-mode)
 
 ;;
 ;; (@* "Landmarks" )
@@ -128,6 +129,22 @@ If this is set to nil, highlighting may break for cases where we're
 highlighting with `completion-pcm--hilit-commonality'."
   :group 'fussy
   :type 'boolean)
+
+(defcustom fussy-fzf-case-mode 'smart
+  "Case-sensitivity mode propagated to `fzf-native-case-mode'.
+Mirrors fzf-native's enum:
+smart    Case-insensitive when the query is all lowercase; case-sensitive
+         once it contains any uppercase character (fzf's default).
+ignore   Always case-insensitive.
+respect  Always case-sensitive.
+
+Applied via `setq-local' inside `fussy-all-completions-v1' when
+`fussy-ignore-case' is non-nil, alongside `completion-ignore-case'.
+Only meaningful when `fussy-score-fn' is `fussy-fzf-native-score'."
+  :group 'fussy
+  :type '(choice (const :tag "Smart case (default)" smart)
+                 (const :tag "Ignore case"          ignore)
+                 (const :tag "Respect case"         respect)))
 
 (defcustom fussy-score-threshold-to-filter nil
   "Candidates with scores of N or less are filtered.
@@ -629,6 +646,9 @@ Implement `all-completions' interface with additional fuzzy / `flx' scoring."
     ;; `fussy-filter-flex'. `orderless-filter' and `all-completions' also use
     ;; this variable.
     (setq-local completion-ignore-case t))
+  ;; Propagate to fzf-native's per-call case mode so the C scorer matches
+  ;; the elisp-side case treatment.
+  (setq-local fzf-native-case-mode fussy-fzf-case-mode)
   (let* ((metadata (completion-metadata string table pred))
          (cache (if (memq (completion-metadata-get metadata 'category)
                           '(file
