@@ -154,7 +154,6 @@ ship; users pick via =fussy-filter-fn=:
 | =fussy-filter-flex=        | Use Emacs's =completion-flex= machinery (the default).               |
 | =fussy-filter-default=     | Build a regex via =fussy-default-regex-fn= and pass to =all-completions=. |
 | =fussy-filter-by-scoring=  | Skip filtering — score every candidate. Slow but exhaustive.         |
-| =fussy-filter-orderless=   | Delegate to the =orderless= package's matchers.                      |
 
 Why filter before scoring: scoring is per-candidate work that scales
 with collection size. A cheap structural filter can drop 99% of

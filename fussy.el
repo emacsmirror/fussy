@@ -3,7 +3,7 @@
 ;; Copyright 2022 James Nguyen
 
 ;; Author: James Nguyen <james@jojojames.com>
-;; Version: 1.1
+;; Version: 2.0
 ;; Package-Requires: ((emacs "29.1") (flx "0.5") (compat "30.0.0.0"))
 ;; Keywords: matching
 ;; Homepage: https://github.com/jojojames/fussy
@@ -66,10 +66,6 @@
 
 ;;; Code:
 
-(declare-function "orderless-filter" "orderless")
-(declare-function "orderless-highlight-matches" "orderless")
-(declare-function "orderless--prefix+pattern" "orderless")
-(defvar orderless-matching-styles)
 (defvar fzf-native-case-mode)
 (defvar ivy-re-builders-alist)
 
@@ -198,9 +194,7 @@ SCORE \(list of indices of STR to be propertized\).
 This function is expected to return STR.
 
 If this is nil, don't propertize (e.g. highlight matches) at all.
-This can also be set to nil to assume highlighting from a different source.
-
-e.g. `fussy-filter-orderless' can also be used for highlighting matches."
+This can also be set to nil to assume highlighting from a different source."
   :type `(choice
           (const :tag "No highlighting" nil)
           (const :tag "By completions-common face."
@@ -279,8 +273,8 @@ FN takes in the same arguments as `fussy-try-completions'.
 
 This FN should not be nil.
 
-Use either `fussy-filter-orderless' or `fussy-filter-default' for faster
-filtering through the `all-completions' (written in C) interface.
+Use `fussy-filter-default' for faster filtering through the
+`all-completions' (written in C) interface.
 
 If using `fussy-filter-default', `fussy-default-regex-fn' can be configured."
   :type `(choice
@@ -288,10 +282,6 @@ If using `fussy-filter-default', `fussy-default-regex-fn' can be configured."
                  ,#'fussy-filter-flex)
           (const :tag "Built in Faster Flex Filtering in C"
                  ,#'fussy-filter-default)
-          (const :tag "Orderless Flex Filtering"
-                 ,#'fussy-filter-orderless-flex)
-          (const :tag "Orderless"
-                 ,#'fussy-filter-orderless)
           (const :tag "By Scoring"
                  ,#'fussy-filter-by-scoring)
           (function :tag "Custom function"))
@@ -447,11 +437,9 @@ This boolean is only used if `fussy-fuz-score' is the `fussy-score-fn'."
 e.g. Instead of returning LIST SCORE MATCH_1 MATCH_2 which something like
 `flx-score' does, it returns LIST SCORE.
 
-Scoring functions in this list's highlighting are then taken care of by either
+Scoring functions in this list's highlighting are then taken care of by
 
-`fussy-filter-orderless' or `completion-pcm--hilit-commonality'.  See
-
-`fussy--use-pcm-highlight-p'.
+`completion-pcm--hilit-commonality'.  See `fussy--use-pcm-highlight-p'.
 
 Functions in this list should match `fussy-score-fn'."
   :type '(list function)
@@ -644,8 +632,7 @@ Implement `all-completions' interface with additional fuzzy / `flx' scoring."
     ;; For example, the implementation of `completion-pcm--hilit-commonality'
     ;; uses `case-fold-search' which sets its value to `completion-ignore-case'.
     ;; Other examples include `completion-pcm--all-completions' which is used by
-    ;; `fussy-filter-flex'. `orderless-filter' and `all-completions' also use
-    ;; this variable.
+    ;; `fussy-filter-flex'. `all-completions' also uses this variable.
     (setq-local completion-ignore-case t))
   ;; Propagate to fzf-native's per-call case mode so the C scorer matches
   ;; the elisp-side case treatment.
@@ -678,11 +665,8 @@ Implement `all-completions' interface with additional fuzzy / `flx' scoring."
               (when (fboundp 'fzf-native-highlight-all)
                 (fzf-native-highlight-all cached-all infix))
             (fussy--highlight-collection
-             (if (fussy--orderless-p)
-                 (fussy--recreate-orderless-pattern
-                  string table pred point)
-               (fussy--recreate-regex-pattern
-                beforepoint afterpoint bounds))
+             (fussy--recreate-regex-pattern
+              beforepoint afterpoint bounds)
              cached-all))
           cached-all)
       (pcase-let*
@@ -695,11 +679,8 @@ Implement `all-completions' interface with additional fuzzy / `flx' scoring."
                           (substring string 0 (- (length string) 1))
                           fussy--all-cache)))))
                 (let* ((_ (setf fussy--current-result cached-all))
-                       (pattern (if (fussy--orderless-p)
-                                    (fussy--recreate-orderless-pattern
-                                     string table pred point)
-                                  (fussy--recreate-regex-pattern
-                                   beforepoint afterpoint bounds)))
+                       (pattern (fussy--recreate-regex-pattern
+                                 beforepoint afterpoint bounds))
                        (candidates (if (fussy--filter-by-scoring-p)
                                        (fussy-outer-score cached-all infix cache)
                                      cached-all)))
@@ -869,40 +850,11 @@ Set a text-property \='completion-score on candidates with their score.
 If `fussy--use-pcm-highlight-p' is t, highlighting will be handled in
 `fussy--maybe-highlight'.
 
-If `fussy--orderless-p' is t, `fussy-filter-orderless' will take care of
-highlighting.
-
 If `fussy-propertize-fn' is nil, no highlighting should take place."
   (and
    (not (fussy--use-pcm-highlight-p))
-   (not (fussy--orderless-p))
    (not (fussy--fzf-p))
    fussy-propertize-fn))
-
-(defun fussy-orderless--highlight-collection (regexps completions ignore-case)
-  "Highlight COMPLETIONS using REGEXPS respecting IGNORE-CASE.
-
-This is extracted from `orderless-all-completions' to do highlighting.
-`orderless' returns the filtered collection immediately which lets it do its
-highlighting after filtering. Since we sort and score the collection afterwards,
-we need to highlight the collection later.
-
-E.g. In `orderless': filter -> highlight -> return collection
-In `fussy', filter* -> score# -> sort# -> highlight* -> return collection.
-
-The * is taken care of by `orderless' and the # is taken care of by `fussy'.
-
-The names of the parameters REGEXPS and COMPLETIONS match `orderless' to make it
-easy to compare with the original but they are 1:1 with
-`fussy--highlight-collection''s PATTERN and COLLECTION parameters."
-  (when (fboundp 'orderless--highlight)
-    (if completion-lazy-hilit
-        (setq completion-lazy-hilit-fn
-              (apply-partially #'orderless--highlight regexps ignore-case))
-      (cl-loop for str in-ref completions do
-               (setf str (orderless--highlight
-                          regexps ignore-case (substring str))))))
-  completions)
 
 (defun fussy--highlight-collection (pattern collection)
   "Highlight COLLECTION using PATTERN.
@@ -912,9 +864,6 @@ easy to compare with the original but they are 1:1 with
     (cond
      ((fussy--use-pcm-highlight-p)
       (fussy--pcm-highlight pattern collection))
-     ((fussy--orderless-p)
-      (fussy-orderless--highlight-collection
-       pattern collection completion-ignore-case))
      (:default
       ;; Assume that the collection's highlighting is handled elsewhere.
       collection))))
@@ -1186,20 +1135,6 @@ Check C1 and C2 in `minibuffer-history-variable' which is stored in
 ;; (@* "Utils" )
 ;;
 
-(defun fussy--recreate-orderless-pattern (string table pred _point)
-  "See `fussy--recreate-regex-pattern'."
-  ;; This implementation from `orderless-all-completions'.
-  (if (fboundp 'orderless--compile)
-      (pcase-let
-          ((`(,_prefix ,regexps ,_ignore-case ,_pred)
-            (if (eq fussy-filter-fn 'fussy-filter-orderless-flex)
-                (let ((orderless-matching-styles '(orderless-flex)))
-                  (ignore orderless-matching-styles)
-                  (orderless--compile string table pred))
-              (orderless--compile string table pred))))
-        regexps)
-    nil))
-
 (defun fussy--recreate-regex-pattern (beforepoint afterpoint bounds)
   "Utility function to create regex pattern for highlighting.
 
@@ -1238,21 +1173,12 @@ again."
   "Return whether or not we're filtering matches through our scoring function."
   (eq fussy-filter-fn 'fussy-filter-by-scoring))
 
-(defun fussy--orderless-p ()
-  "Return whether or not we're using `orderless' for filtering."
-  (or (eq fussy-filter-fn 'fussy-filter-orderless)
-      (eq fussy-filter-fn 'fussy-filter-orderless-flex)))
-
 (defun fussy--use-pcm-highlight-p ()
   "Check if highlighting should use `completion-pcm--hilit-commonality'.
 
 Check if `fussy-score-fn' used doesn't return match indices.
-Check if `orderless' is being used.
 Check if `fzf' is being used (highlighting is done in the C layer)."
   (cond
-   ;; If we're using `orderless' to filter, don't use pcm highlights because
-   ;; `orderless' does it on its own.
-   ((fussy--orderless-p) nil)
    ;; fzf-native applies highlighting directly in the C layer when
    ;; `fussy-fzf-native-highlight' is non-nil; never run pcm fallback.
    ((fussy--fzf-p) nil)
@@ -1330,31 +1256,13 @@ We use invalid characters outside the Unicode range.")
 ;; (@* "Filtering" )
 ;;
 
-(defun fussy-filter-orderless-flex (string table pred point)
-  "Match STRING to the entries in TABLE.
+(define-obsolete-function-alias 'fussy-filter-orderless-flex
+  'fussy-filter-flex "2.0"
+  "Use `fussy-filter-flex' instead.  Orderless integration was removed.")
 
-Use `orderless' for filtering by passing STRING, TABLE and PRED to
-
-`orderless-filter'.  _POINT is not used. This version sets up `orderless'
-to only use the `orderless-flex' pattern."
-  (require 'orderless)
-  (let ((orderless-matching-styles '(orderless-flex)))
-    (fussy-filter-orderless string table pred point)))
-
-(defun fussy-filter-orderless (string table pred _point)
-  "Match STRING to the entries in TABLE.
-
-Use `orderless' for filtering by passing STRING, TABLE and PRED to
-
-`orderless-filter'.  _POINT is not used."
-  (require 'orderless)
-  (when (and (fboundp 'orderless--filter)
-             (fboundp 'orderless--compile))
-    (pcase-let ((`(,prefix ,regexps ,ignore-case ,pred)
-                 (orderless--compile string table pred)))
-      (when-let* ((completions (orderless--filter
-                                prefix regexps ignore-case table pred)))
-        (list completions regexps prefix)))))
+(define-obsolete-function-alias 'fussy-filter-orderless
+  'fussy-filter-default "2.0"
+  "Use `fussy-filter-default' instead.  Orderless integration was removed.")
 
 (defun fussy-filter-flex (string table pred point)
   "Match STRING to the entries in TABLE.
@@ -1784,22 +1692,13 @@ It utilizes `fussy-score-ALL-fn' for batch scoring and respects
 (defun fussy-fuz-score (str query &rest _args)
   "Score STR for QUERY using `fuz'.
 
-skim or clangd algorithm can be used.
-
-If `orderless' is used for filtering, we skip calculating matches
-for more speed."
+skim or clangd algorithm can be used."
   (require 'fuz)
   (if fussy-fuz-use-skim-p
-      (if (fussy--orderless-p)
-          (when (fboundp 'fuz-calc-score-skim)
-            (list (fuz-calc-score-skim query str)))
-        (when (fboundp 'fuz-fuzzy-match-skim)
-          (fuz-fuzzy-match-skim query str)))
-    (if (fussy--orderless-p)
-        (when (fboundp 'fuz-calc-score-clangd)
-          (list (fuz-calc-score-clangd query str)))
-      (when (fboundp 'fuz-fuzzy-match-clangd)
-        (fuz-fuzzy-match-clangd query str)))))
+      (when (fboundp 'fuz-fuzzy-match-skim)
+        (fuz-fuzzy-match-skim query str))
+    (when (fboundp 'fuz-fuzzy-match-clangd)
+      (fuz-fuzzy-match-clangd query str))))
 
 (defun fussy-fuz-score-all (candidates string &optional _cache)
   "Score CANDIDATES for STRING using fuz's multithreaded batch scoring.
@@ -1825,32 +1724,20 @@ Ignore CACHE.  This is only added to match `fussy-score'."
 (defun fussy-fuz-bin-score (str query &rest _args)
   "Score STR for QUERY using `fuz-bin'.
 
-skim or clangd algorithm can be used.
-
-If `orderless' is used for filtering, we skip calculating matches
-for more speed."
+skim or clangd algorithm can be used."
   (require 'fuz-bin)
   ;; (message (format "before: str: %s query: %s" str query))
   (if fussy-fuz-use-skim-p
-      (if (fussy--orderless-p)
-          (when (fboundp 'fuz-bin-dyn-score-skim)
-            (list (fuz-bin-dyn-score-skim query str)))
-        (when (fboundp 'fuz-bin-score-skim)
-          (fuz-bin-score-skim query str)))
-    (if (fussy--orderless-p)
-        (when (fboundp 'fuz-bin-dyn-score-clangd)
-          (list (fuz-bin-dyn-score-clangd query str)))
-      (when (fboundp 'fuz-bin-score-clangd)
-        (fuz-bin-score-clangd query str)))))
+      (when (fboundp 'fuz-bin-score-skim)
+        (fuz-bin-score-skim query str))
+    (when (fboundp 'fuz-bin-score-clangd)
+      (fuz-bin-score-clangd query str))))
 
 ;; `liquidmetal' integration
 (declare-function "liquidmetal-score" "liquidmetal")
 
 (defun fussy-liquidmetal-score (str query &rest _args)
-  "Score STR for QUERY using `liquidmetal'.
-
-This should be paired with `fussy-filter-orderless' to obtain match
-highlighting."
+  "Score STR for QUERY using `liquidmetal'."
   (require 'liquidmetal)
   (when (fboundp 'liquidmetal-score)
     (list (liquidmetal-score str query))))

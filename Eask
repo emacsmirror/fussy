@@ -1,6 +1,6 @@
 ;; -*- mode: eask; lexical-binding: t -*-
 (package "fussy"
-  "1.0"
+  "2.0"
   "Fuzzy completion style using `flx' and `fzf'")
 (package-file "fussy.el")
 ;; Sources
@@ -62,8 +62,7 @@
 (development
   (depends-on "f")
   (depends-on "ert-runner")
-  (depends-on "package-lint")
-  (depends-on "orderless"))
+  (depends-on "package-lint"))
 
 ;; Lint workaround (scoped)
 (add-hook 'eask-before-lint/package-hook

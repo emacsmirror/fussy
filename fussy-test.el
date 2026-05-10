@@ -172,11 +172,6 @@ Called from `fussy-all-completions'."
        (< default-res
           (let ((fussy-filter-fn 'fussy-filter-flex))
             (car (benchmark-run 10
-                   (fussy-all-completions query table pred point))))))
-      (should
-       (< default-res
-          (let ((fussy-filter-fn 'fussy-filter-orderless))
-            (car (benchmark-run 10
                    (fussy-all-completions query table pred point)))))))))
 
 (ert-deftest fussy-filter-fn-default-perf-test ()
@@ -194,11 +189,6 @@ Called from `fussy-all-completions'."
        (<
         default-res
         (car (benchmark-run 3
-               (fussy-filter-orderless query table pred point)))))
-      (should
-       (<
-        default-res
-        (car (benchmark-run 3
                (fussy-filter-flex query table pred point))))))))
 
 (ert-deftest fussy-filter-fn-default-candidates ()
@@ -210,10 +200,7 @@ Called from `fussy-all-completions'."
            (default-res (fussy-filter-default query table pred point)))
       (should
        (= (length default-res)
-          (length (fussy-filter-flex query table pred point))))
-      (should
-       (= (length default-res)
-          (length (fussy-filter-orderless query table pred point)))))))
+          (length (fussy-filter-flex query table pred point)))))))
 
 ;;
 ;; (@* "`fussy-score'" )
@@ -287,15 +274,7 @@ Called from `fussy-all-completions'."
   ;; use-pcm-highlight is t.
   (cl-letf* (((symbol-function 'fussy--use-pcm-highlight-p)
               (lambda () t))
-             (fussy-filter-fn 'not-orderless)
-             (fussy-propertize-fn 'something))
-    (should
-     (eq (fussy--should-propertize-p) nil)))
-
-  ;; `fussy-fitler-fn' is `orderless'.
-  (cl-letf* (((symbol-function 'fussy--use-pcm-highlight-p)
-              (lambda () nil))
-             (fussy-filter-fn 'fussy-filter-orderless)
+             (fussy-filter-fn 'fussy-filter-default)
              (fussy-propertize-fn 'something))
     (should
      (eq (fussy--should-propertize-p) nil)))
@@ -303,7 +282,7 @@ Called from `fussy-all-completions'."
   ;; `fussy-propertize-fn' is nil.
   (cl-letf* (((symbol-function 'fussy--use-pcm-highlight-p)
               (lambda () nil))
-             (fussy-filter-fn 'not-orderless)
+             (fussy-filter-fn 'fussy-filter-default)
              (fussy-propertize-fn nil))
     (should
      (eq (fussy--should-propertize-p) nil)))
@@ -311,7 +290,7 @@ Called from `fussy-all-completions'."
   ;; Should return something.
   (cl-letf* (((symbol-function 'fussy--use-pcm-highlight-p)
               (lambda () nil))
-             (fussy-filter-fn 'not-orderless)
+             (fussy-filter-fn 'fussy-filter-default)
              (fussy-propertize-fn 'something))
     (should
      (fussy--should-propertize-p))))
@@ -326,17 +305,9 @@ Called from `fussy-all-completions'."
   (let ((fussy-score-ALL-fn 'fussy-score)
         (fussy-score-fn 'fn-without-indices)
         (fussy-score-fns-without-indices '(fn-without-indices))
-        (fussy-filter-fn 'not-orderless))
+        (fussy-filter-fn 'fussy-filter-default))
     (should
-     (fussy--use-pcm-highlight-p)))
-
-  ;; `fussy-filter-fn' is using `orderless'.
-  (let ((fussy-score-ALL-fn 'fussy-score)
-        (fussy-score-fn 'fn-without-indices)
-        (fussy-score-fns-without-indices '(fn-without-indices))
-        (fussy-filter-fn 'fussy-filter-orderless))
-    (should
-     (eq (fussy--use-pcm-highlight-p) nil))))
+     (fussy--use-pcm-highlight-p))))
 
 ;;
 ;; (@* "`fussy--history-hash-table'" )

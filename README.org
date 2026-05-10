@@ -324,7 +324,7 @@ the filtering phase. e.g. https://github.com/junegunn/fzf#search-syntax
 ** Flex
 This is the default filtering method and is 1:1 to the filtering done
 when using the ~flex~ ~completion-style~. Advantages are no additional
-dependencies (e.g. ~orderless~) and likely bug-free/stable to use.
+dependencies and likely bug-free/stable to use.
 
 The only disadvantage is that it's the slowest of the filtering methods.
 
@@ -337,45 +337,13 @@ The only disadvantage is that it's the slowest of the filtering methods.
 ** Fast
 This is another usable filtering method and leverages the ~all-completions~ API
 written in C to do its filtering. It seems to be the fastest of the filtering
-methods from quick benchmarking as well as requiring no additional dependencies
-(e.g. ~orderless~).
+methods from quick benchmarking as well as requiring no additional dependencies.
 
 Implementation may be buggy though, so use with caution.
 
 #+begin_src emacs-lisp :tangle yes
   ;; Fast
   (setq fussy-filter-fn 'fussy-filter-default)
-#+end_src
-** Orderless
-[[https://github.com/oantolin/orderless][orderless]] can also be used for
-filtering.  It uses the ~all-completions~ API like ~fussy-filter-default~ so is
-also faster than the default filtering but has a dependency on ~orderless~.
-
-#+begin_src emacs-lisp :tangle yes
-  ;; Orderless
-  (setq fussy-filter-fn 'fussy-filter-orderless-flex)
-#+end_src
-
-To use [[https://github.com/oantolin/orderless][orderless]] filtering:
-
-#+begin_src emacs-lisp :tangle yes
-  (use-package orderless
-    :straight t
-    :ensure t
-    :commands (orderless-filter))
-
-  (setq fussy-filter-fn 'fussy-filter-orderless)
-
-  ;; Highlight matches with `company-mode'.
-  (with-eval-after-load 'orderless
-    ;; https://www.reddit.com/r/emacs/comments/nichkl/how_to_use_different_completion_styles_in_the/
-    ;; https://github.com/oantolin/orderless#company
-    (defun orderless-just-one-face (fn &rest args)
-      (let ((orderless-match-faces [completions-common-part]))
-        (ignore orderless-match-faces)
-        (apply fn args)))
-    (advice-add 'company-capf--candidates
-                :around #'orderless-just-one-face))
 #+end_src
 * Caching
 Results and filtering can be cached for improved performance by setting
@@ -478,18 +446,6 @@ Call ~fussy-company-setup~. This function advises a few ~company-mode~ functions
               (setq-local fussy-max-candidate-limit 5000
                           fussy-default-regex-fn 'fussy-pattern-first-letter
                           fussy-prefer-prefix nil)))
-#+end_src
-** Orderless
-~orderless~ can be used as the filtering function and paired with another scoring function.
-There may be incompatibilities between what orderless uses and what the scoring backend uses.
-
-#+begin_src emacs-lisp :tangle yes
-  (use-package orderless
-    :straight t
-    :ensure t
-    :commands (orderless-filter))
-
-  (setq fussy-filter-fn 'fussy-filter-orderless) ;; or `fussy-filter-orderless-flex'
 #+end_src
 ** Helm Integration
 Integration with [[https://github.com/emacs-helm/helm][helm]] is possible by
