@@ -175,26 +175,27 @@ use it, some ignore it).
 
 ** Built-in backend wrappers
 
-| =fussy-score-fn=              | Engine                          | Notes                                       |
-|-------------------------------+---------------------------------+---------------------------------------------|
-| =flx-score=                   | =flx= (Elisp)                   | Default. No native dependency.              |
-| =fussy-flx-rs-score=          | =flx-rs= (Rust)                 | Drop-in for flx, ~10× faster.               |
-| =fussy-fzf-native-score=      | =fzf-native= (C)                | One-candidate-at-a-time bridge to =fzf-native-score=. |
-| =fussy-fuz-score=             | =fuz= (Rust, skim)              | Rust scoring, single-cand.                  |
-| =fussy-fuz-score-all=         | =fuz= (Rust + rayon)            | Batch variant — see "all-fn" below.         |
-| =fussy-fuz-bin-score=         | =fuz-bin= (prebuilt binary)     | No Rust toolchain required.                 |
-| =fussy-liquidmetal-score=     | Quicksilver-style               | Pure Elisp.                                 |
-| =fussy-sublime-fuzzy-score=   | Sublime-Text algorithm          | Native module.                              |
-| =fussy-hotfuzz-score=         | =hotfuzz=                       | Boundary-aware scoring.                     |
+| Function                      | Defcustom slot         | Engine                       | Notes                                |
+|-------------------------------+------------------------+------------------------------+--------------------------------------|
+| =flx-score=                   | =fussy-score-fn=       | =flx= (Elisp)                | Default. No native dependency.       |
+| =fussy-flx-rs-score=          | =fussy-score-fn=       | =flx-rs= (Rust)              | Drop-in for flx, ~10× faster.        |
+| =fussy-fuz-score=             | =fussy-score-fn=       | =fuz= (Rust, skim)           | Single-candidate.                    |
+| =fussy-fuz-bin-score=         | =fussy-score-fn=       | =fuz-bin= (prebuilt binary)  | No Rust toolchain required.          |
+| =fussy-liquidmetal-score=     | =fussy-score-fn=       | Quicksilver-style            | Pure Elisp.                          |
+| =fussy-sublime-fuzzy-score=   | =fussy-score-fn=       | Sublime-Text algorithm       | Native module.                       |
+| =fussy-hotfuzz-score=         | =fussy-score-fn=       | =hotfuzz=                    | Boundary-aware scoring.              |
+| =fussy-fzf-score=             | =fussy-score-ALL-fn=   | =fzf-native= (C, batch)      | Sole fzf-native entry point. =fussy-setup-fzf= wires this. |
+| =fussy-fuz-score-all=         | =fussy-score-ALL-fn=   | =fuz= (Rust + rayon)         | Batch variant of =fussy-fuz-score=.  |
 
 ** Single-candidate vs. batch backends
 
 Some scoring engines expose a *batch* call (score N candidates in one
 trip across the FFI boundary). For those, =fussy-score-ALL-fn= is the
-relevant defcustom, called *instead of* the per-candidate loop. This
-is the call site fzf-native uses via =fzf-native-score-all= when wired
-up that way — it's much faster for large collections because the per-
-candidate Elisp ↔ C round-trip dominates otherwise.
+relevant defcustom, called *instead of* the per-candidate loop. fzf-
+native is exposed *only* through the batch path (=fussy-fzf-score=);
+the per-candidate bridge was removed in 2.0 because the batch path is
+strictly faster — the per-candidate variant paid the Elisp↔C FFI
+round-trip cost on every candidate.
 
 ** Score validation
 

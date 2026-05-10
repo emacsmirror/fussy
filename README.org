@@ -379,10 +379,6 @@ new completion requests.
                       (flx-score x "a")))
   (4.52991 29 1.269130000000004)
 
-  (benchmark-run 10 (dolist (x random-col)
-                      (fussy-fzf-native-score x "a")))
-  (1.298745 2 0.08969299999999691)
-
    ;; Handles entire list at once.
   (benchmark-run 10 (fussy-fzf-score random-col "a"))
   (0.123468 0 0.0)
@@ -392,18 +388,17 @@ Using https://github.com/jojojames/emacs-completion-bench
 
 | Style                                      | Time (s) | #GC | GC time (s) |   Rel |
 |--------------------------------------------+----------+-----+-------------+-------|
-| `basic` (sort-fn: off)                     | 0.055501 |   0 |    0.000000 |  1.00 |
-| `hotfuzz` (sort-fn: off)                   | 0.117789 |   0 |    0.000000 |  2.12 |
-| `fussy` / `fzf-score` / `default` (off)    | 0.163742 |   0 |    0.000000 |  2.95 |
-| `fussy` / `fzf-score` / `by-scoring` (off) | 0.250570 |   0 |    0.000000 |  4.51 |
-| `orderless` (off)                          | 0.305891 |   0 |    0.000000 |  5.51 |
-| `orderless` + `flex` (off)                 | 0.305966 |   0 |    0.000000 |  5.51 |
-| `fussy` / `fuz-bin` (on)                   | 0.523295 |   0 |    0.000000 |  9.43 |
-| `fussy` / `fzf-native` (on)                | 0.690352 |   0 |    0.000000 | 12.44 |
-| `substring` (off)                          | 0.782974 |   0 |    0.000000 | 14.11 |
-| `fussy` / `flx` (on)                       | 0.989095 |   2 |    0.131571 | 17.82 |
-| `flex` (off)                               | 2.198458 |   0 |    0.000000 | 39.61 |
-| `fussy` / `flx-rs` (on)                    | 4.023574 |   0 |    0.000000 | 72.50 |
+| `basic` (sort-fn: off)                     | 0.055542 |   0 |    0.000000 |  1.00 |
+| `fussy` / `fzf-score` / `default` (off)    | 0.105458 |   0 |    0.000000 |  1.90 |
+| `fussy` / `fzf-score` / `by-scoring` (off) | 0.112884 |   0 |    0.000000 |  2.03 |
+| `hotfuzz` (sort-fn: off)                   | 0.114577 |   0 |    0.000000 |  2.06 |
+| `orderless` + `flex` (off)                 | 0.313757 |   0 |    0.000000 |  5.65 |
+| `orderless` (off)                          | 0.313872 |   0 |    0.000000 |  5.65 |
+| `fussy` / `fuz-bin` (on)                   | 0.517608 |   0 |    0.000000 |  9.32 |
+| `substring` (off)                          | 0.782506 |   0 |    0.000000 | 14.09 |
+| `fussy` / `flx` (on)                       | 1.040492 |   2 |    0.149982 | 18.73 |
+| `flex` (off)                               | 2.187291 |   0 |    0.000000 | 39.38 |
+| `fussy` / `flx-rs` (on)                    | 4.009710 |   0 |    0.000000 | 72.19 |
 
 * Integrations
 ** Eglot Integration

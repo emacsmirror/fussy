@@ -138,7 +138,7 @@ respect  Always case-sensitive.
 
 Applied via `setq-local' inside `fussy-all-completions-v1' when
 `fussy-ignore-case' is non-nil, alongside `completion-ignore-case'.
-Only meaningful when `fussy-score-fn' is `fussy-fzf-native-score'."
+Only meaningful when `fussy-score-ALL-fn' is `fussy-fzf-score'."
   :group 'fussy
   :type '(choice (const :tag "Smart case (default)" smart)
                  (const :tag "Ignore case"          ignore)
@@ -164,7 +164,6 @@ candidates. Keep N at 0 or more for performance."
     (fussy-flx-rs-score . -100)
     (fussy-fuz-score . -100)
     (fussy-fuz-bin-score . -100)
-    (fussy-fzf-native-score . 0)
     (fussy-hotfuzz-score . 0))
   "Candidates with scores of N or less are filtered for a given
 `fussy-score-fn'.
@@ -327,8 +326,6 @@ This may or may not be used by `fussy-score-ALL-fn'."
                  ,'flx-score)
           (const :tag "Score using Flx-RS"
                  ,#'fussy-flx-rs-score)
-          (const :tag "Score using FZF"
-                 ,'fussy-fzf-native-score)
           (const :tag "Score using Fuz"
                  ,#'fussy-fuz-score)
           (const :tag "Score using Fuz-Bin"
@@ -340,11 +337,6 @@ This may or may not be used by `fussy-score-ALL-fn'."
           (const :tag "Score using Hotfuzz"
                  ,#'fussy-hotfuzz-score)
           (function :tag "Custom function"))
-  :group 'fussy)
-
-(defcustom fussy-whitespace-ok-fns '(fussy-fzf-native-score)
-  "List of `fussy-score-fn's that can accept whitespace."
-  :type '(list function)
   :group 'fussy)
 
 (defcustom fussy-AND-component-separator nil
@@ -387,9 +379,8 @@ to produce AND components within the group.  OR groups are rejoined with
 This maps to fzf's native | operator:
   e.g. \"d | x\" matches candidates containing either \"d\" OR \"x\".
        \"d x\" matches candidates containing both \"d\" AND \"x\".
-Only meaningful when `fussy-score-fn' is `fussy-fzf-native-score' or
-`fussy-score-ALL-fn' is `fussy-fzf-score', since other backends do not
-understand the | OR operator.
+Only meaningful when `fussy-score-ALL-fn' is `fussy-fzf-score', since
+other backends do not understand the | OR operator.
 Example — use | for OR and & for AND within each OR group:
   (setq fussy-OR-component-separator \"|\")    ;; split on |
   (setq fussy-AND-component-separator \"[ &]+\") ;; AND within each group
@@ -449,9 +440,9 @@ Functions in this list should match `fussy-score-fn'."
 (defcustom fussy-fzf-native-highlight 25
   "Control C-layer match highlighting for fzf-native scoring.
 
-The C functions `fzf-native-score' and `fzf-native-score-all' read this
-variable directly via `symbol-value' and apply `completions-common-part'
-face to candidate strings.
+The C function `fzf-native-score-all' reads this variable directly
+via `symbol-value' and applies `completions-common-part' face to
+candidate strings.
 
 Default is 25 but this can easily be pushed to every candidate for tiny
 latency cost.
@@ -818,9 +809,7 @@ Use CACHE for scoring.
 Set a text-property \='completion-score on candidates with their score.
 `completion--adjust-metadata' later uses this \='completion-score for sorting."
   (let ((result '())
-        (string (if (memq fussy-score-fn fussy-whitespace-ok-fns)
-                    string
-                  (replace-regexp-in-string "\\\s" "" string))))
+        (string (replace-regexp-in-string "\\\s" "" string)))
     (dolist (x candidates)
       (if (> (length x) fussy-max-word-length-to-score)
           ;; Don't score x but don't filter it out either.
@@ -969,7 +958,6 @@ If SCORE does not have indices to highlight, return STR unmodified."
   "Set up `fussy' for `fzf-native'."
   (fussy-setup)
   (setq fussy-filter-fn 'fussy-filter-by-scoring)
-  (setq fussy-score-fn 'fussy-fzf-native-score)
   (setq fussy-score-ALL-fn 'fussy-fzf-score)
   (setq fussy-use-cache t))
 
@@ -1163,8 +1151,7 @@ again."
 
 (defun fussy--fzf-p ()
   "Return whether or not we're using fzf."
-  (or (eq fussy-score-ALL-fn 'fussy-fzf-score)
-      (eq fussy-score-fn 'fussy-fzf-native-score)))
+  (eq fussy-score-ALL-fn 'fussy-fzf-score))
 
 (defun fussy--fuz-score-all-p ()
   "Return whether or not we're using fuz's multithreaded batch scoring."
@@ -1426,7 +1413,7 @@ hash-table-value is the associated value."
                     (funcall pred candidate hash-table-value)
                   (funcall pred candidate))))
       nil
-    ;; e.g. (> (car (fzf-native-score "abc" "a" )) 0)
+    ;; e.g. (> (car (funcall fussy-score-fn "abc" "a")) 0)
     (if-let* ((x (cond
                   ((hash-table-p table) candidate)
                   ((stringp candidate) candidate)
@@ -1751,21 +1738,6 @@ skim or clangd algorithm can be used."
   (require 'sublime-fuzzy)
   (when (fboundp 'sublime-fuzzy-score)
     (list (sublime-fuzzy-score query str))))
-
-;; `fzf-native' integration
-(defvar fussy--fzf-native-slab nil)
-(defsubst fussy--fzf-native-slab ()
-  "Return lazy loaded slab for `fzf-native'."
-  (or fussy--fzf-native-slab
-      (when (fboundp 'fzf-native-make-default-slab)
-        (setf fussy--fzf-native-slab (fzf-native-make-default-slab)))))
-
-(defun fussy-fzf-native-score (str query &rest _args)
-  "Score STR for QUERY using `fzf-native'."
-  (require 'fzf-native)
-  (when (fboundp 'fzf-native-score)
-    (fzf-native-score
-     str query (fussy--fzf-native-slab))))
 
 ;; `hotfuzz' integration
 (declare-function "hotfuzz--cost" "hotfuzz")

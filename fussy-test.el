@@ -326,9 +326,8 @@ Called from `fussy-all-completions'."
 ;;
 ;; These exercise the fussy-level integration with the fzf-native C module
 ;; against invalid unibyte and legitimate multibyte candidates. The C-layer
-;; handling lives in `fzf-native-test.el'; here we make sure fussy's wrappers
-;; (`fussy-fzf-score' via `fussy-score-ALL-fn', and the per-candidate
-;; `fussy-fzf-native-score' path via `fussy-score') don't signal and return
+;; handling lives in `fzf-native-test.el'; here we make sure fussy's wrapper
+;; (`fussy-fzf-score' via `fussy-score-ALL-fn') doesn't signal and returns
 ;; useful results.
 
 (defconst fussy-test--bad-bytes
@@ -370,17 +369,6 @@ clean matches."
     (should (member "你好世界" result))
     (should (member "你是" result))))
 
-(ert-deftest fussy-score-multibyte-test ()
-  "`fussy-score' with `fussy-fzf-native-score' does not signal on bad bytes."
-  (skip-unless fussy-test--fzf-native-available-p)
-  (let* ((fussy-score-fn 'fussy-fzf-native-score)
-         ;; Ensure the C module itself is what's being exercised, not the
-         ;; Elisp-side bad-char stripping.
-         (fussy-remove-bad-char-fn nil)
-         (result (fussy-score (list fussy-test--bad-bytes) "C")))
-    ;; bad-bytes contains "C" (in "Copyright"); coercion lets fzf score it,
-    ;; so the candidate survives.
-    (should (member fussy-test--bad-bytes result))))
 
 ;;
 ;; (@* "Util" )
