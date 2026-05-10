@@ -650,6 +650,7 @@ Implement `all-completions' interface with additional fuzzy / `flx' scoring."
   ;; Propagate to fzf-native's per-call case mode so the C scorer matches
   ;; the elisp-side case treatment.
   (setq-local fzf-native-case-mode fussy-fzf-case-mode)
+  (setq-local fzf-native-batch-highlight fussy-fzf-native-highlight)
   (let* ((metadata (completion-metadata string table pred))
          (cache (if (memq (completion-metadata-get metadata 'category)
                           '(file
@@ -673,13 +674,17 @@ Implement `all-completions' interface with additional fuzzy / `flx' scoring."
           ;; (message "%s from hash with length %d"
           ;;          string (length cached-all))
           ;; (fussy--print-hash-table fussy--all-cache)
-          (fussy--highlight-collection
-           (if (fussy--orderless-p)
-               (fussy--recreate-orderless-pattern
-                string table pred point)
-             (fussy--recreate-regex-pattern
-              beforepoint afterpoint bounds))
-           cached-all))
+          (if (fussy--fzf-p)
+              (when (fboundp 'fzf-native-highlight-all)
+                (fzf-native-highlight-all cached-all infix))
+            (fussy--highlight-collection
+             (if (fussy--orderless-p)
+                 (fussy--recreate-orderless-pattern
+                  string table pred point)
+               (fussy--recreate-regex-pattern
+                beforepoint afterpoint bounds))
+             cached-all))
+          cached-all)
       (pcase-let*
           ((`(,all ,pattern ,_prefix)
             (if-let* ((cached-all
@@ -712,7 +717,12 @@ Implement `all-completions' interface with additional fuzzy / `flx' scoring."
           (if (or (length> infix fussy-max-query-length)
                   (fussy--filter-by-scoring-p) ;; We don't need to score again.
                   (string= infix ""))
-              (fussy--highlight-collection pattern all)
+              (progn
+                (if (fussy--fzf-p)
+                    (when (fboundp 'fzf-native-highlight-all)
+                      (fzf-native-highlight-all all infix))
+                  (fussy--highlight-collection pattern all))
+                all)
             (if (length< all fussy-max-candidate-limit)
                 (fussy--highlight-collection
                  pattern
