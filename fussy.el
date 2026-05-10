@@ -71,6 +71,7 @@
 (declare-function "orderless--prefix+pattern" "orderless")
 (defvar orderless-matching-styles)
 (defvar fzf-native-case-mode)
+(defvar ivy-re-builders-alist)
 
 ;;
 ;; (@* "Landmarks" )
