@@ -524,6 +524,17 @@ https://lists.gnu.org/archive/html/help-gnu-emacs/2008-06/msg00087.html"
        (message "%.06f" (float-time (time-since time)))
        result)))
 
+(defcustom fussy-debug nil
+  "When non-nil, emit debug messages via `fussy--debug'."
+  :group 'fussy
+  :type 'boolean)
+
+(defsubst fussy--debug (format-string &rest args)
+  "Emit a `fussy' debug message when `fussy-debug' is non-nil.
+FORMAT-STRING and ARGS are passed to `message'."
+  (when fussy-debug
+    (apply #'message (concat "[fussy] " format-string) args)))
+
 ;;
 ;; (@* "Constants and Variables" )
 ;;
@@ -562,7 +573,7 @@ See `fussy-score-threshold-to-filter-alist'.")
   "Try to flex-complete STRING in TABLE given PRED and POINT.
 
 Implement `try-completions' interface by using `completion-flex-try-completion'."
-  ;; (message "called `fussy-try-completions'...")
+  (fussy--debug "called `fussy-try-completions'...")
   (completion-flex-try-completion string table pred point))
 
 (defvar-local fussy--current-result nil
@@ -582,10 +593,10 @@ If result came back -> :default -> return result."
   (pcase
       (while-no-input (fussy-all-completions-v1 string table pred point))
     ('nil
-     ;; (message "fn: %S nil" 'fussy-all-completions)
+     (fussy--debug "fn: %S nil" 'fussy-all-completions)
      nil)
     ('t
-     ;; (message "fn: %S quoteT" 'fussy-all-completions)
+     (fussy--debug "fn: %S quoteT" 'fussy-all-completions)
      (when (consp fussy--current-result)
        (nconc fussy--current-result (length fussy--current-prefix))))
     (`,collection
@@ -593,9 +604,8 @@ If result came back -> :default -> return result."
      (when (consp collection)
        (let ((base-size (length fussy--current-prefix)))
          (when fussy-use-cache
-           ;; (message "putting %s into hash with coll length %s"
-           ;;          string (length collection))
-           ;; (fussy--print-hash-table fussy--all-cache)
+           (fussy--debug "putting %s into hash with coll length %s"
+                         string (length collection))
            (puthash string (cl-copy-list collection)
                     fussy--all-cache))
          (if (> base-size 0)
@@ -607,7 +617,7 @@ If result came back -> :default -> return result."
   "Get flex-completions of STRING in TABLE, given PRED and POINT.
 
 Implement `all-completions' interface with additional fuzzy / `flx' scoring."
-  ;; (message "called `fussy-all-completions'...")
+  (fussy--debug "called `fussy-all-completions'...")
   (setf fussy--current-result nil)
   (setf fussy--hist-hash (fussy--history-hash-table))
   (when (and fussy-use-cache
@@ -650,9 +660,8 @@ Implement `all-completions' interface with additional fuzzy / `flx' scoring."
                                 (gethash string fussy--all-cache)))))
         (progn
           (setf fussy--current-result cached-all)
-          ;; (message "%s from hash with length %d"
-          ;;          string (length cached-all))
-          ;; (fussy--print-hash-table fussy--all-cache)
+          (fussy--debug "%s from hash with length %d"
+                        string (length cached-all))
           (if (fussy--fzf-p)
               (when (fboundp 'fzf-native-highlight-all)
                 (fzf-native-highlight-all cached-all infix))
@@ -676,15 +685,15 @@ Implement `all-completions' interface with additional fuzzy / `flx' scoring."
                        (candidates (if (fussy--filter-by-scoring-p)
                                        (fussy-outer-score cached-all infix cache)
                                      cached-all)))
-                  ;; (message "using cache for filter")
+                  (fussy--debug "using cache for filter")
                   (setf fussy--current-result candidates)
                   (list candidates pattern prefix))
               (funcall fussy-filter-fn
                        string table pred point))))
-        ;; (message (format
-        ;;           "fn: %S string: %s prefix: %s infix: %s all: %S pattern: %s"
-        ;;           'fussy-all-completions
-        ;;           string prefix infix (or all '("nada")) pattern))
+        (fussy--debug
+         "fn: %S string: %s prefix: %s infix: %s all: %S pattern: %s"
+         'fussy-all-completions
+         string prefix infix (or all '("nada")) pattern)
         (when all
           (setf fussy--current-result all)
           (if (or (length> infix fussy-max-query-length)
@@ -816,9 +825,8 @@ Set a text-property \='completion-score on candidates with their score.
           (unless fussy-filter-unscored-candidates
             (push (copy-sequence x) result))
         (let ((score (funcall fussy-score-fn x string cache)))
-          ;; (message
-          ;;  (format "fn: %S candidate: %s query: %s score %S"
-          ;;          'fussy-score x string score))
+          (fussy--debug "fn: %S candidate: %s query: %s score %S"
+                        'fussy-score x string score)
           ;; Candidates with a score of N or less are filtered.
           (when (fussy-valid-score-p score)
             (setf x (copy-sequence x))
@@ -1237,7 +1245,7 @@ We use invalid characters outside the Unicode range.")
 
 (defun fussy-wipe-cache (&rest _)
   "Wipe buffer local `fussy--all-cache'."
-  ;; (message "Setting `fussy--all-cache' to nil..")
+  (fussy--debug "Setting `fussy--all-cache' to nil..")
   (setf fussy--all-cache nil))
 
 ;;
@@ -1331,10 +1339,9 @@ that's written in C for faster filtering."
          ;; pattern if this is not the pcm highlight case.
          (pattern
           (fussy-make-pcm-highlight-pattern beforepoint afterpoint bounds)))
-    ;; (message
-    ;;  (format
-    ;;   "prefix: %s infix: %s pattern %s completions %S regexp_list: %S"
-    ;;   prefix infix pattern completions completion-regexp-list))
+    (fussy--debug
+     "prefix: %s infix: %s pattern %s completions %S regexp_list: %S"
+     prefix infix pattern completions completion-regexp-list)
     (list completions pattern prefix)))
 
 (defun fussy-filter-by-scoring (string table pred point)
@@ -1420,9 +1427,10 @@ hash-table-value is the associated value."
                   ((consp candidate) (car candidate))
                   ((symbolp candidate) (symbol-name candidate))
                   (:default nil))))
-        ;; (message (format "c: %s s: %s score: %d" x string (car score)))
         ;; Note: `string' is already normalized in `fussy-filter-by-scoring'.
-        (fussy-valid-score-p (funcall fussy-score-fn x string))
+        (let ((score (funcall fussy-score-fn x string)))
+          (fussy--debug "c: %s s: %s score: %S" x string score)
+          (fussy-valid-score-p score))
       t)))
 
 (defun fussy-make-pcm-highlight-pattern (beforepoint afterpoint bounds)
@@ -1714,7 +1722,7 @@ Ignore CACHE.  This is only added to match `fussy-score'."
 
 skim or clangd algorithm can be used."
   (require 'fuz-bin)
-  ;; (message (format "before: str: %s query: %s" str query))
+  (fussy--debug "before: str: %s query: %s" str query)
   (if fussy-fuz-use-skim-p
       (when (fboundp 'fuz-bin-score-skim)
         (fuz-bin-score-skim query str))
