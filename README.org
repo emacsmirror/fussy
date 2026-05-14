@@ -386,19 +386,29 @@ new completion requests.
 
 Using https://github.com/jojojames/emacs-completion-bench
 
-| Style                                            | Time (s) | #GC | GC time (s) |   Rel |
-|--------------------------------------------------+----------+-----+-------------+-------|
-| `basic`                                          | 0.057035 |   0 |         0.0 |  0.50 |
-| `fussy`/`fzf-native` (`fussy-filter-default`)    | 0.089633 |   0 |         0.0 |  0.78 |
-| `fussy`/`fzf-native` (`fussy-filter-by-scoring`) | 0.101029 |   0 |         0.0 |  0.88 |
-| `hotfuzz`                                        | 0.115202 |   0 |         0.0 |     1 |
-| `orderless` (default)                            | 0.310777 |   0 |         0.0 |  2.70 |
-| `fussy`/`fuz-bin`                                | 0.486535 |   0 |         0.0 |  4.22 |
-| `substring`                                      | 0.792698 |   0 |         0.0 |  6.88 |
-| `orderless` (flex)                               | 0.846879 |   0 |         0.0 |  7.35 |
-| `fussy`/`flx`                                    | 1.004024 |   2 |    0.139745 |  8.72 |
-| `flex`                                           | 2.247146 |   0 |         0.0 | 19.51 |
-| `fussy`/`flx-rs`                                 | 4.026389 |   0 |         0.0 | 34.95 |
+| Style                                                            | Time (s) | #GC | GC time (s) |   Rel |
+|------------------------------------------------------------------+----------+-----+-------------+-------|
+| `basic`                                                          | 0.054805 |   0 |         0.0 |  0.47 |
+| `fussy`/`fzf-native` (filter-only, `fussy-filter-default`)       | 0.090381 |   0 |         0.0 |  0.78 |
+| `fussy`/`fzf-native` (filter-only, `fussy-filter-by-scoring`)    | 0.094981 |   0 |         0.0 |  0.82 |
+| `fussy`/`fzf-native` (`fussy-filter-default`)                    | 0.096279 |   0 |         0.0 |  0.83 |
+| `fussy`/`fzf-native` (`fussy-filter-by-scoring`)                 | 0.105952 |   0 |         0.0 |  0.91 |
+| `hotfuzz`                                                        | 0.115911 |   0 |         0.0 |     1 |
+| `orderless` (default)                                            | 0.306053 |   0 |         0.0 |  2.64 |
+| `fussy`/`fuz-bin`                                                | 0.432805 |   0 |         0.0 |  3.73 |
+| `substring`                                                      | 0.772593 |   0 |         0.0 |  6.67 |
+| `orderless` (flex)                                               | 0.841234 |   0 |         0.0 |  7.26 |
+| `fussy`/`flx`                                                    | 0.910818 |   2 |    0.134576 |  7.86 |
+| `flex`                                                           | 2.183582 |   0 |         0.0 | 18.84 |
+| `fussy`/`flx-rs`                                                 | 3.995279 |   0 |         0.0 | 34.47 |
+
+The =filter-only= rows are taken with =fussy-company-filter-only-length=
+non-nil (the new default) — fzf-native runs its cheap ~fzf_has_match~
+path instead of full DP scoring, and ~fussy~ stays in the completion
+pipeline so its candidate pool subsumes across keystrokes.  At 95k
+candidates the absolute win over full scoring is modest (~6–10%); it
+widens with pool size because the per-candidate inner loop is ~5×
+cheaper.
 
 * Integrations
 ** Eglot Integration
@@ -410,6 +420,25 @@ Using https://github.com/jojojames/emacs-completion-bench
 Call ~fussy-company-setup~. This function advises a few ~company-mode~ functions.
 #+begin_src emacs-lisp :tangle yes
   (fussy-company-setup)
+#+end_src
+
+Two knobs control how fussy handles short prefixes under company:
+
+| Variable                            | Default | Behavior                                                                 |
+|-------------------------------------+---------+--------------------------------------------------------------------------|
+| ~fussy-company-prefix-length~       | 3       | Bypass cutoff: prefixes strictly shorter than N strip fussy from ~completion-styles~ and run plain completion. |
+| ~fussy-company-filter-only-length~  | 3       | Filter-only cutoff: prefixes strictly shorter than N keep fussy in the pipeline but take fzf-native's cheap ~fzf_has_match~ path.  Overrides the bypass when both apply. Set to ~nil~ to use the bypass instead.  Only meaningful when ~fussy-score-ALL-fn~ is ~fussy-fzf-score~. |
+
+By default short prefixes go through filter-only (`fzf` route) — ~fzf-native~
+does the cheap filtering, fussy stays in ~completion-styles~ so its candidate
+pool subsumes naturally across keystrokes, and the eventual
+full-scoring keystroke (prefix length ≥ N) scans an already-narrow
+set.
+
+If you prefer the older bypass behavior — short prefixes skip fussy
+entirely, falling back to plain ~completion-styles~ — set:
+#+begin_src emacs-lisp
+(setq fussy-company-filter-only-length nil)
 #+end_src
 ** Icomplete/Fido Integration
 ~fido~ uses the built in ~flex~ ~completion-style~ by default. We can advise

@@ -493,6 +493,25 @@ This only applies when `fussy-max-candidate-limit' is reached."
   :group 'fussy
   :type 'integer)
 
+(defcustom fussy-company-filter-only-length 3
+  "Prefix length below which `fussy-company--fetch-candidates' takes the
+fzf-native filter-only path.
+
+When set to a positive integer N, *overrides* `fussy-company-prefix-length':
+prefixes strictly shorter than N take the filter-only path instead of
+the bypass — fussy stays in `completion-styles' and the C side runs the
+cheap `fzf_has_match' filter.
+
+  fussy-company-prefix-length    : first N-1 chars *skip fussy altogether*.
+  fussy-company-filter-only-length: first N-1 chars run fussy in filter-only
+                                    mode (cheap match, no DP scoring).
+
+Set to nil to disable the override and fall back to the bypass behaviour.
+Only meaningful when `fussy-score-ALL-fn' is `fussy-fzf-score'."
+  :group 'fussy
+  :type '(choice (const :tag "Disabled (use bypass)" nil)
+                 (integer :tag "Max prefix length for filter-only")))
+
 ;;;###autoload
 (defcustom fussy-adjust-metadata-fn
   #'fussy--adjust-metadata
@@ -801,6 +820,12 @@ Examples (with fussy-OR-component-separator \"|\" and
   "Function used to wrap `fussy-score-ALL-fn'."
   (funcall fussy-score-ALL-fn candidates (fussy-normalize-query string) cache))
 
+(defvar fussy--last-was-filter-only nil
+  "Non-nil when the most recent `fussy-fzf-score' call ran in filter-only mode.
+
+Set by `fussy-fzf-score' immediately before it calls `fzf-native-score-all',
+using `fzf-native-filter-only-p' to mirror the C-side decision.")
+
 (defun fussy-fzf-score (candidates string &optional _cache)
   "Score and propertize CANDIDATES using STRING.
 
@@ -808,6 +833,11 @@ This implementation uses `fzf-native-score-all' to do all its scoring in one go.
 
 Ignore CACHE. This is only added to match `fussy-score'."
   (when (fboundp 'fzf-native-score-all)
+    ;; Record whether `fzf-native' will take its filter-only path so
+    ;; `fussy--adjust-metadata' can skip the score-based sort.
+    (setq fussy--last-was-filter-only
+          (and (fboundp 'fzf-native-filter-only-p)
+               (fzf-native-filter-only-p (length string) (length candidates))))
     (fzf-native-score-all candidates string)))
 
 (defun fussy-score (candidates string &optional cache)
@@ -988,7 +1018,9 @@ one parallel Rust call instead of per-candidate Elisp iteration."
 
 (defun fussy--adjust-metadata (metadata)
   "If actually doing filtering, adjust METADATA's sorting."
-  (if fussy--filtering-p
+  (if (and fussy--filtering-p
+           ;; We only call `fussy-sort' if we scored the candidates.
+           (not fussy--last-was-filter-only))
       `(metadata
         (display-sort-function . fussy--sort)
         (cycle-sort-function . fussy--sort)
@@ -1563,13 +1595,38 @@ result: LIST ^a"
       (apply f args))))
 
 (defun fussy-company--fetch-candidates (f &rest args)
-  "Advise `company--fetch-candidates'."
+  "Advise `company--fetch-candidates'.
+
+When the user has opted in to fzf-native filter-only mode by setting
+`fussy-company-filter-only-length' to a positive integer N, prefixes
+strictly shorter than N keep fussy in the completion pipeline and let
+fzf-native take its cheap `fzf_has_match' (aka filter only) path.
+
+Otherwise (no opt-in, prefix at/above threshold, or non-fzf scorer)
+behave as before: strip fussy from `completion-styles' for prefixes
+shorter than `fussy-company-prefix-length', else run fussy as usual."
   (let ((prefix (nth 0 args))
         (_suffix (nth 1 args)))
-    (if (length< prefix fussy-company-prefix-length)
-        (let ((completion-styles (remq 'fussy completion-styles))
-              (completion-category-overrides nil))
-          (apply f args))
+    (cond
+     ;; Filter-only path: opt-in via a positive `fussy-company-filter-only-length'.
+     ;; Gate is the same `length<' shape used by the legacy bypass below so
+     ;; the cutover is easy to reason about — just with a different threshold.
+     ((and (integerp fussy-company-filter-only-length)
+           (> fussy-company-filter-only-length 0)
+           (length< prefix fussy-company-filter-only-length)
+           (fussy--fzf-p))
+      (let* ((fussy-max-candidate-limit 5000)
+             (fussy-AND-component-separator "[ &]")
+             (fussy-OR-component-separator "|")
+             (fzf-native-filter-only-length fussy-company-filter-only-length)
+             (fzf-native-filter-only-logic 'or))
+        (apply f args)))
+     ;; Legacy bypass path: short prefix → run completion without fussy.
+     ((length< prefix fussy-company-prefix-length)
+      (let ((completion-styles (remq 'fussy completion-styles))
+            (completion-category-overrides nil))
+        (apply f args)))
+     (t
       (let* ((fussy-max-candidate-limit 5000)
              (fussy-default-regex-fn 'fussy-pattern-first-letter)
              (fzf (fussy--fzf-p))
@@ -1580,7 +1637,7 @@ result: LIST ^a"
              (fussy-OR-component-separator
               (if fzf "|" fussy-OR-component-separator))
              (fussy-prefer-prefix nil))
-        (apply f args)))))
+        (apply f args))))))
 
 (defun fussy-company--preprocess-candidates (candidates)
   "Advise `company--preprocess-candidates'.

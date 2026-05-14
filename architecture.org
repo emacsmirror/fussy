@@ -280,6 +280,102 @@ the tie. Default: =fussy-histlen->strlen<= — minibuffer history first
 The same function (or =fussy-default-sort-fn=) is used to sort the
 collection when no scoring is needed (e.g. empty query).
 
+* Sort metadata — =fussy--adjust-metadata=
+
+Emacs's completion machinery asks each style for sort hints via
+=(get 'fussy 'completion--adjust-metadata)=, which points at
+=fussy--adjust-metadata=. The function decides whether to install
+=fussy--sort= (score-based sorting) as the =display-sort-function= /
+=cycle-sort-function= on the returned metadata.
+
+#+begin_src
+  if   fussy--filtering-p AND not fussy--last-was-filter-only
+       → install fussy--sort (score-based)
+  elif category in (command, buffer)
+       → install fussy--default-sort (history+length)
+  else
+       → return metadata unchanged
+#+end_src
+
+** =fussy--last-was-filter-only= — the filter-only handoff
+
+When fzf-native is the scorer and runs in *filter-only mode* (cheap
+=fzf_has_match= instead of full DP scoring; see
+[[https://github.com/dangduc/fzf-native/blob/HEAD/architecture.org][fzf-native/architecture.org]]),
+candidates come back *without* a reliable =completion-score=. Running
+=fussy--sort= on them would either crash (number-or-marker errors on
+nil scores) or shuffle by stale scores aliased onto persistent
+candidate strings (obarray symbols, buffer names) from a previous
+full-mode call.
+
+The fix is a tiny dynamic handoff modeled on core flex's
+=completion-flex--pattern-str=:
+
+| Component                  | Role                                             |
+|----------------------------+--------------------------------------------------|
+| =fussy--last-was-filter-only= | Global defvar. Non-nil ⇒ the most recent      |
+|                            | =fussy-fzf-score= call took filter-only mode.    |
+| =fussy-fzf-score=          | Before each =fzf-native-score-all= call, sets   |
+|                            | this via =(fzf-native-filter-only-p qlen cands)= |
+|                            | — the C-defined predicate.                       |
+| =fussy--adjust-metadata=   | Reads the variable. If non-nil, skips installing |
+|                            | =fussy--sort= so input order from fzf-native is  |
+|                            | preserved.                                       |
+
+Single source of truth lives in C (=decide_filter_only=). Both fussy
+and fzf-native call the same predicate, so they cannot disagree on
+"is this a filter-only call?"
+
+** Stale-property aliasing — why we use a dynamic var instead of probing
+
+An obvious alternative is to head-probe =(get-text-property 0
+'completion-score (car completions))= inside =fussy--sort= and skip
+sorting when nil. This is wrong because =fzf-native-score-all=
+mutates the caller's strings via =put-text-property= rather than
+returning fresh propertized strings (cf. core flex's =propertize=).
+Persistent candidate strings can retain a score from a previous
+full-mode run even after a filter-only run that didn't touch the
+property. The dynamic variable side-steps the aliasing entirely:
+it reflects *the decision made for this call*, regardless of any
+stale property state.
+
+* Company integration
+
+=fussy-company-setup= adds four advices on company internals. The two
+that matter for behavior shaping:
+
+| Advice                             | Function                              |
+|------------------------------------+---------------------------------------|
+| =company--transform-candidates=    | =fussy-company--transformer=          |
+| =company--fetch-candidates=        | =fussy-company--fetch-candidates=     |
+
+** Short-prefix dispatch
+
+For short prefixes (where score ranking is noisy because the query
+provides little signal), =fussy-company--fetch-candidates= picks one
+of three paths:
+
+| Defcustom                            | Default | Effect for prefixes shorter than N        |
+|--------------------------------------+---------+-------------------------------------------|
+| =fussy-company-filter-only-length=   | 3       | Filter-only path. Fussy stays in          |
+|                                      |         | =completion-styles=; =fzf-native-filter-  |
+|                                      |         | only-length= is dynamically bound to N    |
+|                                      |         | so the C side runs =fzf_has_match=.       |
+|                                      |         | Requires =fussy-fzf-score= as the scorer. |
+| =fussy-company-prefix-length=        | 3       | Bypass path. Fussy is stripped from       |
+|                                      |         | =completion-styles= for the call; plain   |
+|                                      |         | completion runs against the underlying    |
+|                                      |         | table.                                    |
+
+=fussy-company-filter-only-length= takes precedence when both apply
+and =fussy--fzf-p= is t. Set it to =nil= to fall back to the bypass.
+
+The filter-only path is generally preferred for fzf-native users
+because fussy's candidate pool *subsumes* across keystrokes — the
+eventual full-scoring keystroke (prefix length ≥ N) re-scans an
+already-narrowed set rather than the original table. The bypass path
+throws that subsumption away.
+
 * Query normalization — AND/OR
 
 =fussy-normalize-query= handles multi-term syntax:
@@ -314,6 +410,8 @@ for the long form.
 | =fussy-use-cache=                        | Enable backspace/prefix cache.                             |
 | =fussy-ignore-case=                      | Case-insensitive matching.                                 |
 | =fussy-score-threshold-to-filter-alist=  | Per-backend score thresholds.                              |
+| =fussy-company-prefix-length=            | Bypass cutoff in the company integration.                  |
+| =fussy-company-filter-only-length=       | Filter-only cutoff in the company integration. Overrides the bypass when set; nil disables. |
 
 * Behavior reference (canonical input → output)
 
