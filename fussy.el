@@ -493,7 +493,7 @@ This only applies when `fussy-max-candidate-limit' is reached."
   :group 'fussy
   :type 'integer)
 
-(defcustom fussy-company-filter-only-length 3
+(defcustom fussy-company-filter-only-length nil
   "Prefix length below which `fussy-company--fetch-candidates' takes the
 fzf-native filter-only path.
 
