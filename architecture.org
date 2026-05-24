@@ -14,7 +14,7 @@ For sibling projects in the same scoring/completion stack, see:
 
 - [[https://github.com/dangduc/fzf-native/blob/HEAD/architecture.org][fzf-native/architecture.org]]
   — the C scoring module fussy can dispatch to.
-- [[https://github.com/jojojames/fzf-async/blob/HEAD/architecture.org][fzf-async/architecture.org]]
+- [[https://github.com/jojojames/fzfa/blob/HEAD/architecture.org][fzfa/architecture.org]]
   — async shell-driven completion that *bypasses* fussy on purpose (it
   has its own completion style that talks to fzf-native directly).
 
@@ -451,4 +451,4 @@ for the long form.
 - =README.org= — user-facing setup and recommendations.
 - Sibling architecture docs:
   [[https://github.com/dangduc/fzf-native/blob/HEAD/architecture.org][fzf-native/architecture.org]],
-  [[https://github.com/jojojames/fzf-async/blob/HEAD/architecture.org][fzf-async/architecture.org]].
+  [[https://github.com/jojojames/fzfa/blob/HEAD/architecture.org][fzfa/architecture.org]].
