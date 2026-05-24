@@ -599,6 +599,8 @@ Implement `try-completions' interface by using `completion-flex-try-completion'.
   "Current result of `fussy-all-completions'.")
 (defvar-local fussy--current-prefix nil
   "Current prefix of `fussy-all-completions'.")
+(defvar-local fussy--current-infix nil
+  "Current infix of `fussy-all-completions'.")
 (defvar fussy--filtering-p nil
   "Is `fussy' filtering currently?")
 
@@ -674,6 +676,7 @@ Implement `all-completions' interface with additional fuzzy / `flx' scoring."
                  (substring afterpoint 0 (cdr bounds)))))
     (setf fussy--filtering-p (not (string= infix "")))
     (setf fussy--current-prefix prefix)
+    (setf fussy--current-infix infix)
     (if-let* ((cached-all (and fussy-use-cache
                                (cl-copy-list
                                 (gethash string fussy--all-cache)))))
@@ -838,7 +841,9 @@ Ignore CACHE. This is only added to match `fussy-score'."
     (setq fussy--last-was-filter-only
           (and (fboundp 'fzf-native-filter-only-p)
                (fzf-native-filter-only-p (length string) (length candidates))))
-    (fzf-native-score-all candidates string)))
+    ;; Highlight after `fussy--sort'.
+    (let ((fzf-native-batch-highlight nil))
+      (fzf-native-score-all candidates string))))
 
 (defun fussy-score (candidates string &optional cache)
   "Score and propertize CANDIDATES using STRING.
@@ -991,13 +996,31 @@ If SCORE does not have indices to highlight, return STR unmodified."
           (symbol-help
            (styles fussy basic)))))
 
+(defun fussy-fzf--sort-highlight-advice (orig-fn completions)
+  "Around advice for `fussy--sort' under `fussy-setup-fzf'.
+
+Run ORIG-FN to sort COMPLETIONS, then re-highlight the post-sort
+top-N via `fzf-native-highlight-all'.  Needed because the C-side
+scorer highlights the top-N by its own score-order, but
+`fussy--sort' re-orders ties via `fussy-compare-same-score-fn',
+so the displayed top-N would otherwise differ from the highlighted
+top-N (most candidates tying at the same score for short queries)."
+  (let ((sorted (funcall orig-fn completions)))
+    (when (and sorted
+               (fboundp 'fzf-native-highlight-all)
+               (stringp fussy--current-infix)
+               (not (string= fussy--current-infix "")))
+      (fzf-native-highlight-all sorted fussy--current-infix))
+    sorted))
+
 ;;;###autoload
 (defun fussy-setup-fzf ()
   "Set up `fussy' for `fzf-native'."
   (fussy-setup)
   (setq fussy-filter-fn 'fussy-filter-by-scoring)
   (setq fussy-score-ALL-fn 'fussy-fzf-score)
-  (setq fussy-use-cache t))
+  (setq fussy-use-cache t)
+  (advice-add 'fussy--sort :around #'fussy-fzf--sort-highlight-advice))
 
 ;;;###autoload
 (defun fussy-setup-fuz ()
