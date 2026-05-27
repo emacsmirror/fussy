@@ -1667,7 +1667,7 @@ shorter than `fussy-company-prefix-length', else run fussy as usual."
          ;; Same flex-3 prefilter for every route — for the filter-only
          ;; path it narrows the pool before fzf's `fzf_has_match' check,
          ;; for the full path it narrows before fzf's DP scoring.
-         (fussy-default-regex-fn 'fussy-pattern-flex-3)
+         ;; (fussy-default-regex-fn 'fussy-pattern-flex-3)
          ;; Tie-breaker and cache cost more than they save in company's
          ;; short popup cycles.
          (fussy-compare-same-score-fn nil)
