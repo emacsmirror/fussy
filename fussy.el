@@ -68,6 +68,8 @@
 
 (defvar fzf-native-case-mode)
 (defvar fzf-native-batch-highlight)
+(defvar fzf-native-filter-only-length)
+(defvar fzf-native-filter-only-logic)
 (defvar ivy-re-builders-alist)
 
 ;;
@@ -583,6 +585,16 @@ See `fussy-score-threshold-to-filter-alist'.")
 (defvar-local fussy--all-cache nil
   "Hash table representing a cache for `fussy-all-completions'.")
 
+(defvar fussy--last-was-filter-only)
+
+(defsubst fussy--needs-hist-hash-p ()
+  "Whether `fussy-compare-same-score-fn' actually reads history.
+
+Used to skip building `fussy--hist-hash' when the active tie-breaker
+doesn't consult `minibuffer-history-variable'."
+  (memq fussy-compare-same-score-fn
+        '(fussy-histlen< fussy-histlen->strlen<)))
+
 ;;
 ;; (@* "All Completions Interface/API" )
 ;;
@@ -640,7 +652,8 @@ If result came back -> :default -> return result."
 Implement `all-completions' interface with additional fuzzy / `flx' scoring."
   (fussy--debug "called `fussy-all-completions'...")
   (setf fussy--current-result nil)
-  (setf fussy--hist-hash (fussy--history-hash-table))
+  (when (fussy--needs-hist-hash-p)
+    (setf fussy--hist-hash (fussy--history-hash-table)))
   (when (and fussy-use-cache
              (or
               (not fussy--all-cache)
@@ -723,7 +736,15 @@ Implement `all-completions' interface with additional fuzzy / `flx' scoring."
                   (string= infix ""))
               (progn
                 (if (fussy--fzf-p)
-                    (when (fboundp 'fzf-native-highlight-all)
+                    ;; `fussy--sort' (wrapped by
+                    ;; `fussy-fzf--sort-highlight-advice') will re-highlight
+                    ;; the post-sort top-N for the full-scoring case. Only
+                    ;; highlight here when filter-only is the active path,
+                    ;; since `fussy--adjust-metadata' skips installing
+                    ;; `fussy--sort' in that case and no later highlight
+                    ;; pass will run.
+                    (when (and fussy--last-was-filter-only
+                               (fboundp 'fzf-native-highlight-all))
                       (fzf-native-highlight-all all infix))
                   (fussy--highlight-collection pattern all))
                 all)
@@ -1065,11 +1086,11 @@ Used when there's no need to sort. e.g. User hasn't typed anything."
       (if fussy-default-sort-fn
           (sort completions fussy-default-sort-fn)
         completions)
-    (let* ((hist (fussy--history-hash-table))
-           (uses-hist (memq fussy-default-sort-fn
-                            '(fussy-histlen->strlen< fussy-histlen<)))
+    (let* ((uses-hist (memq fussy-default-sort-fn
+                             '(fussy-histlen->strlen< fussy-histlen<)))
            (uses-len (memq fussy-default-sort-fn
-                           '(fussy-histlen->strlen< fussy-strlen< fussy-strlen>))))
+                           '(fussy-histlen->strlen< fussy-strlen< fussy-strlen>)))
+           (hist (when uses-hist (fussy--history-hash-table))))
       (mapcar
        #'car
        (sort
@@ -1113,11 +1134,11 @@ Used when there's no need to sort. e.g. User hasn't typed anything."
              (> s1 s2)))))
     ;; Schwartzian transform for larger collections to avoid repeated
     ;; property/hash lookups in the sort predicate.
-    (let* ((hist (fussy--history-hash-table))
-           (uses-hist (memq fussy-compare-same-score-fn
-                            '(fussy-histlen->strlen< fussy-histlen<)))
+    (let* ((uses-hist (memq fussy-compare-same-score-fn
+                             '(fussy-histlen->strlen< fussy-histlen<)))
            (uses-len (memq fussy-compare-same-score-fn
-                           '(fussy-histlen->strlen< fussy-strlen< fussy-strlen>))))
+                           '(fussy-histlen->strlen< fussy-strlen< fussy-strlen>)))
+           (hist (when uses-hist (fussy--history-hash-table))))
       (mapcar
        #'car
        (sort
@@ -1411,7 +1432,8 @@ Use `fussy-score-ALL-fn' for filtering."
        (infix (concat
                (substring beforepoint (car bounds))
                (substring afterpoint 0 (cdr bounds))))
-       (completion-regexp-list nil)
+       (regexp (funcall fussy-default-regex-fn infix))
+       (completion-regexp-list regexp)
        (bufferp (eq 'buffer
                     (alist-get 'category
                                (completion-metadata string table pred))))
@@ -1545,6 +1567,13 @@ exhaustive on matches."
     (when (> (length str) 1)
       "\\)\\)"))))
 
+(defun fussy-pattern-flex-3 (str)
+  "Make STR flex pattern."
+  (list
+   (mapconcat (lambda (c) (regexp-quote (char-to-string c)))
+              str
+              ".*")))
+
 (defun fussy-pattern-default (str)
   "Default pattern to pass to `completion-regexp-list' when filtering.."
   (fussy-pattern-default-to-backend str))
@@ -1628,21 +1657,35 @@ fzf-native take its cheap `fzf_has_match' (aka filter only) path.
 Otherwise (no opt-in, prefix at/above threshold, or non-fzf scorer)
 behave as before: strip fussy from `completion-styles' for prefixes
 shorter than `fussy-company-prefix-length', else run fussy as usual."
-  (let ((prefix (nth 0 args))
-        (_suffix (nth 1 args)))
+  (let* ((prefix (nth 0 args))
+         (_suffix (nth 1 args))
+         (fzf (fussy--fzf-p))
+         ;; Knobs shared by every fussy-active route. Safe to bind on the
+         ;; bypass path too — fussy isn't in `completion-styles' there, so
+         ;; these have no effect.
+         (fussy-max-candidate-limit 5000)
+         ;; Same flex-3 prefilter for every route — for the filter-only
+         ;; path it narrows the pool before fzf's `fzf_has_match' check,
+         ;; for the full path it narrows before fzf's DP scoring.
+         (fussy-default-regex-fn 'fussy-pattern-flex-3)
+         ;; Tie-breaker and cache cost more than they save in company's
+         ;; short popup cycles.
+         (fussy-compare-same-score-fn nil)
+         (fussy-use-cache nil)
+         (fussy-AND-component-separator
+          (if fzf "[ &]" fussy-AND-component-separator))
+         (fussy-OR-component-separator
+          (if fzf "|" fussy-OR-component-separator)))
     (cond
      ;; Filter-only path: opt-in via a positive `fussy-company-filter-only-length'.
      ;; Gate is the same `length<' shape used by the legacy bypass below so
      ;; the cutover is easy to reason about — just with a different threshold.
-     ((and (integerp fussy-company-filter-only-length)
+     ((and fzf
+           (integerp fussy-company-filter-only-length)
            (> fussy-company-filter-only-length 0)
-           (length< prefix fussy-company-filter-only-length)
-           (fussy--fzf-p))
-      (let* ((fussy-max-candidate-limit 5000)
-             (fussy-AND-component-separator "[ &]")
-             (fussy-OR-component-separator "|")
-             (fzf-native-filter-only-length fussy-company-filter-only-length)
-             (fzf-native-filter-only-logic 'or))
+           (length< prefix fussy-company-filter-only-length))
+      (let ((fzf-native-filter-only-length fussy-company-filter-only-length)
+            (fzf-native-filter-only-logic 'or))
         (apply f args)))
      ;; Legacy bypass path: short prefix → run completion without fussy.
      ((length< prefix fussy-company-prefix-length)
@@ -1650,16 +1693,7 @@ shorter than `fussy-company-prefix-length', else run fussy as usual."
             (completion-category-overrides nil))
         (apply f args)))
      (t
-      (let* ((fussy-max-candidate-limit 5000)
-             (fussy-default-regex-fn 'fussy-pattern-first-letter)
-             (fzf (fussy--fzf-p))
-             ;; Make this customizable.
-             ;; e.g. fussy-company-AND-component-separator.
-             (fussy-AND-component-separator
-              (if fzf "[ &]" fussy-AND-component-separator))
-             (fussy-OR-component-separator
-              (if fzf "|" fussy-OR-component-separator))
-             (fussy-prefer-prefix nil))
+      (let ((fussy-prefer-prefix nil))
         (apply f args))))))
 
 (defun fussy-company--preprocess-candidates (candidates)
@@ -1678,7 +1712,6 @@ This is to try to avoid a additional sort step."
 (defun fussy-company-setup ()
   "Set up `company' with `fussy'."
   (with-eval-after-load 'company
-    (advice-add 'company-auto-begin :before 'fussy-wipe-cache)
     (advice-add 'company--transform-candidates
                 :around 'fussy-company--transformer)
     (advice-add 'company--fetch-candidates
