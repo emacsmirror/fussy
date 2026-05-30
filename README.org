@@ -53,9 +53,7 @@ or
 #+begin_src emacs-lisp :tangle yes
   ;; `fzf`
   (use-package fzf-native
-    :vc (:url "https://github.com/dangduc/fzf-native" :rev :newest)
-    :config
-    (fzf-native-load-dyn))
+    :vc (:url "https://github.com/dangduc/fzf-native" :rev :newest))
 
   (use-package fussy
     :config
@@ -107,9 +105,7 @@ for a native C implementation of ~fzf~,
 
 #+begin_src emacs-lisp :tangle yes
 (use-package fzf-native
-  :vc (:url "https://github.com/dangduc/fzf-native" :rev :newest)
-  :config
-  (fzf-native-load-dyn))
+  :vc (:url "https://github.com/dangduc/fzf-native" :rev :newest))
 #+end_src
 
 ** Fuz
@@ -274,9 +270,7 @@ former configuration, this section will be kept up to date with my ~init.el~.
 
 #+begin_src emacs-lisp :tangle yes
 (use-package fzf-native
-  :vc (:url "https://github.com/dangduc/fzf-native" :rev :newest)
-  :config
-  (fzf-native-load-dyn)))
+  :vc (:url "https://github.com/dangduc/fzf-native" :rev :newest))
 
 (use-package fussy
   :vc (:url "https://github.com/jojojames/fussy" :rev :newest)
