@@ -514,6 +514,20 @@ Only meaningful when `fussy-score-ALL-fn' is `fussy-fzf-score'."
   :type '(choice (const :tag "Disabled (use bypass)" nil)
                  (integer :tag "Max prefix length for filter-only")))
 
+(defcustom fussy-company-gc-cons-threshold (* 128 1024 1024)
+  "Floor for `gc-cons-threshold' during `fussy-company--fetch-candidates'.
+
+`fussy-company--fetch-candidates' raises `gc-cons-threshold' to at
+least this value for the duration of the fetch, so GC defers to a
+natural pause between input bursts rather than firing mid-keystroke.
+
+If you already set `gc-cons-threshold' globally higher (e.g. via the
+`gcmh' package), the higher value wins — the binding uses `max'.
+
+Set to 0 to opt out of the bump entirely."
+  :group 'fussy
+  :type 'integer)
+
 ;;;###autoload
 (defcustom fussy-adjust-metadata-fn
   #'fussy--adjust-metadata
@@ -1692,7 +1706,8 @@ shorter than `fussy-company-prefix-length', else run fussy as usual."
          ;; path it narrows the pool before fzf's `fzf_has_match' check,
          ;; for the full path it narrows before fzf's DP scoring.
          ;; (fussy-default-regex-fn 'fussy-pattern-flex-3)
-         (gc-cons-threshold (max gc-cons-threshold (* 128 1024 1024)))
+         (gc-cons-threshold (max gc-cons-threshold
+                                 fussy-company-gc-cons-threshold))
          ;; Tie-breaker and cache cost more than they save in company's
          ;; short popup cycles.
          (fussy-compare-same-score-fn nil)
