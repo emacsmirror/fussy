@@ -1617,6 +1617,7 @@ exhaustive on matches."
 
 (defun fussy-pattern-default (str)
   "Default pattern to pass to `completion-regexp-list' when filtering.."
+  (ignore str)
   (fussy-pattern-default-to-backend str))
 
 (define-inline fussy-pattern-default-to-backend (_str)
