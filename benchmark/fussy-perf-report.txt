@@ -1,0 +1,557 @@
+===============================================================
+ fussy-perf-bench combined report
+ fussy child : /var/folders/wc/dtprc6t537s91rl6jj0m98040000gn/T/fussy-perf-fussy.XXXXXX.S9AzmQRa4k (now copied below)
+ flex  child : /var/folders/wc/dtprc6t537s91rl6jj0m98040000gn/T/fussy-perf-flex.XXXXXX.BNvXgWeZbE  (now copied below)
+===============================================================
+fussy-perf-bench (fussy) generated at 2026-05-29 21:33:00 -0400
+queries: ("" "s" "se" "set" "setq"), iters/query: 30, profile iters: 500
+
+=== ENVIRONMENT (style=fussy) ===
+emacs-version       : 31.0.50
+system-type         : darwin
+system-configuration: aarch64-apple-darwin25.3.0
+invocation          : emacs -Q --batch
+fussy library file  : /Users/james/.emacs.d/elpa/31/fussy/fussy.elc
+company library file: /Users/james/.emacs.d/elpa/31/company-20260521.2156/company.elc
+fzf-native library  : /Users/james/.emacs.d/elpa/31/fzf-native/fzf-native.elc
+fzf-native dyn loaded: YES
+obarray size        : 20166
+
+=== FUSSY DEFCUSTOMS ===
+fussy-debug                                  = nil
+fussy-use-cache                              = t
+fussy-filter-fn                              = fussy-filter-by-scoring
+fussy-score-fn                               = flx-score
+fussy-score-ALL-fn                           = fussy-fzf-score
+fussy-default-regex-fn                       = fussy-pattern-default
+fussy-max-candidate-limit                    = 30000
+fussy-max-query-length                       = 100
+fussy-ignore-case                            = t
+fussy-fzf-case-mode                          = smart
+fussy-fzf-native-highlight                   = 25
+fussy-compare-same-score-fn                  = fussy-histlen->strlen<
+fussy-default-sort-fn                        = fussy-histlen->strlen<
+fussy-AND-component-separator                = nil
+fussy-OR-component-separator                 = nil
+fussy-company-prefix-length                  = 0
+fussy-company-filter-only-length             = nil
+fussy-adjust-metadata-fn                     = fussy--adjust-metadata
+fussy-propertize-fn                          = fussy-propertize-common-part
+fussy-prefer-prefix                          = t
+
+=== FZF-NATIVE VARIABLES ===
+fzf-native-case-mode                         = smart
+fzf-native-batch-highlight                   = 25
+fzf-native-filter-only-length                = nil
+fzf-native-filter-only-logic                 = or
+fzf-native-filter-only-min-pool              = 10000000
+fzf-native-max-line-length                   = 256
+
+=== COMPANY CONFIG ===
+company-idle-delay                           = 0.05
+company-minimum-prefix-length                = 1
+company-tooltip-align-annotations            = t
+company-selection-wrap-around                = t
+company-frontends                            = nil
+company-transformers                         = nil
+company-backends                             = (company-bbdb company-semantic company-cmake company-capf company-clang company-files (company-dabbrev-code company-gtags company-etags company-keywords) company-oddmuse company-dabbrev)
+company-require-match                        = nil
+
+=== COMPLETION CONFIG ===
+completion-styles               : (fussy basic partial-completion emacs22)
+completion-category-overrides  :
+((file (styles fussy basic)) (buffer (styles fussy basic))
+ (consult-location (styles fussy basic))
+ (unicode-name (styles fussy basic))
+ (project-file (styles fussy basic))
+ (xref-location (styles fussy basic)) (info-menu (styles fussy basic))
+ (symbol-help (styles fussy basic)))
+completion-styles-alist (keys) : (fussy emacs21 emacs22 basic partial-completion substring flex initials shorthand)
+completion-lazy-hilit          : nil
+
+=== GC ===
+gc-cons-threshold : 800000 (0.8 MB)
+gc-cons-percentage: 1.0
+gcs-done so far   : 2
+gc-elapsed so far : 0.008 s
+
+=== ADVICE CHAINS ===
+company--fetch-candidates:
+  - fussy-company--fetch-candidates
+company--transform-candidates:
+  - fussy-company--transformer
+company--preprocess-candidates:
+  - fussy-company--preprocess-candidates
+company-auto-begin: (no advice)
+company--capf-completions: (no advice)
+company-capf: (no advice)
+fussy-all-completions: (no advice)
+fussy-all-completions-v1: (no advice)
+fussy--sort:
+  - fussy-fzf--sort-highlight-advice
+fzf-native-score-all: (no advice)
+completion-all-completions: (no advice)
+completion-flex-all-completions: (no advice)
+elisp-completion-at-point: (no advice)
+
+=== LISP-INTERACTION-MODE CAPF CONTEXT ===
+major-mode (in test buffer): lisp-interaction-mode
+completion-at-point-functions:
+  (elisp-completion-at-point t)
+
+=== PER-KEYSTROKE TIMING (style=fussy, iters=30 each) ===
+Stage breakdown uses temporary :around advice on each function.
+All times in milliseconds.
+
+--- style=fussy query="" iters=30 cands=10409 ---
+Buffer state: "(|)"   prefix returned: ("" "" nil)
+Total (ms): n=30 avg=1.192 min=0.846 p50=0.884 p95=5.379 max=5.586 sum=35.7
+GC during run: count=2, gc-ms=9.2
+Stage breakdown (sorted by total ms):
+  fn                                          calls   total-ms      avg      p50      p95      max
+  company--fetch-candidates                      31     36.334    1.172    0.874    5.368    5.574
+  company--capf-completions                      31     27.032    0.872    0.870    0.907    0.925
+  completion-all-completions                     31     26.282    0.848    0.846    0.882    0.901
+  fussy-all-completions                          31     26.151    0.844    0.842    0.878    0.896
+  fussy-all-completions-v1                       31     26.107    0.842    0.841    0.877    0.893
+  fussy-filter-by-scoring                        31     26.042    0.840    0.839    0.875    0.892
+  fussy-outer-score                              31      0.977    0.032    0.031    0.038    0.049
+  fussy-fzf-score                                31      0.856    0.028    0.027    0.032    0.045
+  company--preprocess-candidates                  1      0.099    0.099    0.099    0.099    0.099
+  fussy-normalize-query                          31      0.027    0.001    0.001    0.002    0.003
+  fussy--adjust-metadata                         31      0.009    0.000    0.000    0.001    0.001
+  company--transform-candidates                   1      0.001    0.001    0.001    0.001    0.001
+
+--- style=fussy query="s" iters=30 cands=6561 ---
+Buffer state: "(s|)"   prefix returned: ("s" "" nil)
+Total (ms): n=30 avg=2.257 min=1.894 p50=1.927 p95=6.798 max=6.840 sum=67.7
+GC during run: count=3, gc-ms=14.7
+Stage breakdown (sorted by total ms):
+  fn                                          calls   total-ms      avg      p50      p95      max
+  company--fetch-candidates                      31     74.353    2.398    1.922    6.833    6.838
+  company--capf-completions                      31     50.223    1.620    1.615    1.678    1.686
+  completion-all-completions                     31     49.747    1.605    1.601    1.662    1.669
+  fussy-all-completions                          31     49.621    1.601    1.597    1.657    1.664
+  fussy-all-completions-v1                       31     49.574    1.599    1.595    1.656    1.661
+  fussy-filter-by-scoring                        31     49.510    1.597    1.593    1.652    1.659
+  fussy-outer-score                              31     24.632    0.795    0.791    0.821    0.826
+  fussy-fzf-score                                31     24.508    0.791    0.788    0.816    0.819
+  fussy--sort                                    31      9.266    0.299    0.299    0.307    0.307
+  company--preprocess-candidates                  1      0.066    0.066    0.066    0.066    0.066
+  fussy-normalize-query                          31      0.028    0.001    0.001    0.001    0.002
+  fussy--adjust-metadata                         31      0.005    0.000    0.000    0.001    0.001
+  company--transform-candidates                   1      0.001    0.001    0.001    0.001    0.001
+
+--- style=fussy query="se" iters=30 cands=4973 ---
+Buffer state: "(se|)"   prefix returned: ("se" "" nil)
+Total (ms): n=30 avg=2.233 min=1.847 p50=1.910 p95=6.827 max=6.895 sum=67.0
+GC during run: count=2, gc-ms=9.9
+Stage breakdown (sorted by total ms):
+  fn                                          calls   total-ms      avg      p50      p95      max
+  company--fetch-candidates                      31     68.781    2.219    1.904    6.821    6.888
+  company--capf-completions                      31     51.015    1.646    1.652    1.682    1.690
+  completion-all-completions                     31     50.642    1.634    1.641    1.668    1.676
+  fussy-all-completions                          31     50.518    1.630    1.637    1.664    1.673
+  fussy-all-completions-v1                       31     50.476    1.628    1.636    1.662    1.672
+  fussy-filter-by-scoring                        31     50.416    1.626    1.634    1.660    1.669
+  fussy-outer-score                              31     25.463    0.821    0.824    0.848    0.856
+  fussy-fzf-score                                31     25.353    0.818    0.819    0.843    0.853
+  fussy--sort                                    31      7.686    0.248    0.247    0.254    0.255
+  company--preprocess-candidates                  1      0.049    0.049    0.049    0.049    0.049
+  fussy-normalize-query                          31      0.031    0.001    0.001    0.001    0.001
+  fussy--adjust-metadata                         31      0.002    0.000    0.000    0.001    0.001
+  company--transform-candidates                   1      0.000    0.000    0.000    0.000    0.000
+
+--- style=fussy query="set" iters=30 cands=2610 ---
+Buffer state: "(set|)"   prefix returned: ("set" "" nil)
+Total (ms): n=30 avg=1.801 min=1.598 p50=1.637 p95=1.686 max=6.529 sum=54.0
+GC during run: count=1, gc-ms=4.9
+Stage breakdown (sorted by total ms):
+  fn                                          calls   total-ms      avg      p50      p95      max
+  company--fetch-candidates                      31     55.610    1.794    1.634    1.688    6.524
+  company--capf-completions                      31     46.307    1.494    1.490    1.541    1.541
+  completion-all-completions                     31     46.094    1.487    1.483    1.533    1.534
+  fussy-all-completions                          31     45.962    1.483    1.478    1.529    1.530
+  fussy-all-completions-v1                       31     45.923    1.481    1.477    1.527    1.528
+  fussy-filter-by-scoring                        31     45.864    1.479    1.475    1.524    1.526
+  fussy-outer-score                              31     20.949    0.676    0.672    0.704    0.715
+  fussy-fzf-score                                31     20.835    0.672    0.669    0.700    0.711
+  fussy--sort                                    31      4.273    0.138    0.138    0.141    0.142
+  fussy-normalize-query                          31      0.026    0.001    0.001    0.001    0.001
+  company--preprocess-candidates                  1      0.026    0.026    0.026    0.026    0.026
+  fussy--adjust-metadata                         31      0.004    0.000    0.000    0.001    0.001
+  company--transform-candidates                   1      0.000    0.000    0.000    0.000    0.000
+
+--- style=fussy query="setq" iters=30 cands=26 ---
+Buffer state: "(setq|)"   prefix returned: ("setq" "" nil)
+Total (ms): n=30 avg=1.471 min=1.250 p50=1.314 p95=1.355 max=6.164 sum=44.1
+GC during run: count=1, gc-ms=4.9
+Stage breakdown (sorted by total ms):
+  fn                                          calls   total-ms      avg      p50      p95      max
+  company--fetch-candidates                      31     45.396    1.464    1.313    1.354    6.162
+  company--capf-completions                      31     39.881    1.286    1.290    1.328    1.332
+  completion-all-completions                     31     39.806    1.284    1.288    1.326    1.330
+  fussy-all-completions                          31     39.685    1.280    1.283    1.322    1.326
+  fussy-all-completions-v1                       31     39.643    1.279    1.281    1.321    1.325
+  fussy-filter-by-scoring                        31     39.581    1.277    1.280    1.318    1.322
+  fussy-outer-score                              31     14.715    0.475    0.478    0.499    0.499
+  fussy-fzf-score                                31     14.609    0.471    0.475    0.495    0.495
+  fussy--sort                                    31      0.535    0.017    0.017    0.023    0.023
+  fussy-normalize-query                          31      0.027    0.001    0.001    0.001    0.002
+  fussy--adjust-metadata                         31      0.006    0.000    0.000    0.001    0.001
+  company--transform-candidates                   1      0.001    0.001    0.001    0.001    0.001
+  company--preprocess-candidates                  1      0.001    0.001    0.001    0.001    0.001
+
+=== TYPING SEQUENCE (style=fussy, seq="setq", iters=30) ===
+State (company-candidates-cache + any fussy-internal cache) carries WITHIN
+an iteration, resets BETWEEN iterations.  Each per-char ms is the cost of
+`company-calculate-candidates' — cache check + (fetch | subsume) + postprocess.
+Frontend (popup draw) is still not measured in batch.
+
+idx  prefix        cands   cache-hits      n      avg      p50      p95      max
+  0  "s"            6561      0/30        30    2.340    2.006    6.894    7.093
+  1  "se"            328     30/30        30    0.063    0.062    0.070    0.070
+  2  "set"           213     30/30        30    0.059    0.059    0.062    0.064
+  3  "setq"            4     30/30        30    0.056    0.056    0.058    0.059
+
+Sum of medians (p50) across chars: 2.183 ms
+Sum of avgs across chars         : 2.519 ms
+GC during typing-sequence pass   : count=2, gc-ms=10.0
+
+=== PROFILER: style=fussy query="s" iters=500 ===
+        1002  95% - ...
+         996  95%  - company--capf-completions
+         996  95%   - completion-all-completions
+         996  95%    - completion--nth-completion
+         996  95%     - seq-some
+         996  95%      - seq-do
+         996  95%       - mapc
+         996  95%        - #<byte-code-function 3DE>
+         996  95%         - #<byte-code-function 326>
+         996  95%          - eval
+         996  95%           - let
+         996  95%            - funcall
+         996  95%             - #<byte-code-function 3A6>
+         996  95%              - fussy-all-completions
+         996  95%               - fussy-all-completions-v1
+         996  95%                - fussy-filter-by-scoring
+         965  92%                 - fussy-outer-score
+         965  92%                  - fussy-fzf-score
+         964  91%                   - fzf-native-score-all
+         448  42%                      vconcat
+           6   0%                      cons
+           2   0%                      put-text-property
+          31   2%                 - all-completions
+           2   0%                    elisp--shorthand-aware-fboundp
+           6   0%  - while
+           6   0%   - let
+           6   0%    - company--fetch-candidates
+           6   0%     - apply
+           6   0%      - fussy-company--fetch-candidates
+           6   0%       - apply
+           6   0%        - #<byte-code-function 87F>
+           6   0%         - company-call-backend-raw
+           6   0%          - apply
+           6   0%           - company-capf
+           6   0%            - company-capf--candidates
+           6   0%             - fussy--sort
+           6   0%              - apply
+           6   0%               - fussy-fzf--sort-highlight-advice
+           6   0%                - #<byte-code-function B70>
+           6   0%                   sort
+          46   4%   Automatic GC
+
+
+=== PROFILER: style=fussy query="setq" iters=500 ===
+         546  94% - ...
+         546  94%  - company--capf-completions
+         546  94%   - completion-all-completions
+         546  94%    - completion--nth-completion
+         546  94%     - seq-some
+         546  94%      - seq-do
+         546  94%       - mapc
+         546  94%        - #<byte-code-function E6A>
+         546  94%         - #<byte-code-function FD2>
+         546  94%          - eval
+         546  94%           - let
+         544  93%            - funcall
+         544  93%             - #<byte-code-function E12>
+         544  93%              - fussy-all-completions
+         544  93%               - fussy-all-completions-v1
+         544  93%                - fussy-filter-by-scoring
+         480  82%                 - fussy-outer-score
+         480  82%                  - fussy-fzf-score
+         479  82%                   - fzf-native-score-all
+         394  68%                      vconcat
+          64  11%                 - all-completions
+          24   4%                  - elisp--shorthand-aware-fboundp
+           3   0%                     fboundp
+           2   0%            - while
+           2   0%             - let
+           2   0%              - company--fetch-candidates
+           2   0%               - apply
+           2   0%                - fussy-company--fetch-candidates
+           2   0%                 - apply
+           2   0%                  - #<byte-code-function 87F>
+           2   0%                   - company-call-backend-raw
+           2   0%                    - apply
+           2   0%                     - company-capf
+           2   0%                      - company-capf--candidates
+           2   0%                       - fussy--sort
+           2   0%                        - apply
+           2   0%                         - fussy-fzf--sort-highlight-advice
+           2   0%                            fzf-native-highlight-all
+          33   5%   Automatic GC
+
+
+===============================================================
+fussy-perf-bench (flex) generated at 2026-05-29 21:33:02 -0400
+queries: ("" "s" "se" "set" "setq"), iters/query: 30, profile iters: 500
+
+=== ENVIRONMENT (style=flex) ===
+emacs-version       : 31.0.50
+system-type         : darwin
+system-configuration: aarch64-apple-darwin25.3.0
+invocation          : emacs -Q --batch
+fussy library file  : /Users/james/.emacs.d/elpa/31/fussy/fussy.elc
+company library file: /Users/james/.emacs.d/elpa/31/company-20260521.2156/company.elc
+fzf-native library  : /Users/james/.emacs.d/elpa/31/fzf-native/fzf-native.elc
+fzf-native dyn loaded: NO
+obarray size        : 20005
+
+=== FUSSY DEFCUSTOMS ===
+(fussy not loaded in this process)
+
+=== COMPANY CONFIG ===
+company-idle-delay                           = 0.05
+company-minimum-prefix-length                = 1
+company-tooltip-align-annotations            = t
+company-selection-wrap-around                = t
+company-frontends                            = nil
+company-transformers                         = nil
+company-backends                             = (company-bbdb company-semantic company-cmake company-capf company-clang company-files (company-dabbrev-code company-gtags company-etags company-keywords) company-oddmuse company-dabbrev)
+company-require-match                        = nil
+
+=== COMPLETION CONFIG ===
+completion-styles               : (flex)
+completion-category-overrides  :
+nil
+completion-styles-alist (keys) : (emacs21 emacs22 basic partial-completion substring flex initials shorthand)
+completion-lazy-hilit          : nil
+
+=== GC ===
+gc-cons-threshold : 800000 (0.8 MB)
+gc-cons-percentage: 1.0
+gcs-done so far   : 2
+gc-elapsed so far : 0.008 s
+
+=== ADVICE CHAINS ===
+company--fetch-candidates: (no advice)
+company--transform-candidates: (no advice)
+company--preprocess-candidates: (no advice)
+company-auto-begin: (no advice)
+company--capf-completions: (no advice)
+company-capf: (no advice)
+completion-all-completions: (no advice)
+completion-flex-all-completions: (no advice)
+elisp-completion-at-point: (no advice)
+
+=== LISP-INTERACTION-MODE CAPF CONTEXT ===
+major-mode (in test buffer): lisp-interaction-mode
+completion-at-point-functions:
+  (elisp-completion-at-point t)
+
+=== PER-KEYSTROKE TIMING (style=flex, iters=30 each) ===
+Stage breakdown uses temporary :around advice on each function.
+All times in milliseconds.
+
+--- style=flex query="" iters=30 cands=10348 ---
+Buffer state: "(|)"   prefix returned: ("" "" nil)
+Total (ms): n=30 avg=2.152 min=1.599 p50=1.684 p95=6.505 max=6.626 sum=64.6
+GC during run: count=3, gc-ms=14.5
+Stage breakdown (sorted by total ms):
+  fn                                          calls   total-ms      avg      p50      p95      max
+  company--fetch-candidates                      31     65.966    2.128    1.673    6.496    6.617
+  company--capf-completions                      31     65.876    2.125    1.670    6.492    6.614
+  completion-all-completions                     31     65.110    2.100    1.646    6.457    6.588
+  completion-flex-all-completions                31     64.988    2.096    1.643    6.450    6.581
+  company--preprocess-candidates                  1      2.424    2.424    2.424    2.424    2.424
+  company--transform-candidates                   1      0.000    0.000    0.000    0.000    0.000
+
+--- style=flex query="s" iters=30 cands=6494 ---
+Buffer state: "(s|)"   prefix returned: ("s" "" nil)
+Total (ms): n=30 avg=6.126 min=4.032 p50=4.181 p95=12.895 max=13.516 sum=183.8
+GC during run: count=7, gc-ms=58.0
+Stage breakdown (sorted by total ms):
+  fn                                          calls   total-ms      avg      p50      p95      max
+  company--fetch-candidates                      31    187.957    6.063    4.174   12.887   13.509
+  company--capf-completions                      31    155.000    5.000    3.384   12.054   12.667
+  completion-all-completions                     31    154.511    4.984    3.369   12.037   12.649
+  completion-flex-all-completions                31    154.360    4.979    3.364   12.031   12.641
+  company--preprocess-candidates                  1      0.134    0.134    0.134    0.134    0.134
+  company--transform-candidates                   1      0.000    0.000    0.000    0.000    0.000
+
+--- style=flex query="se" iters=30 cands=4918 ---
+Buffer state: "(se|)"   prefix returned: ("se" "" nil)
+Total (ms): n=30 avg=6.706 min=4.959 p50=5.068 p95=13.662 max=13.945 sum=201.2
+GC during run: count=7, gc-ms=56.7
+Stage breakdown (sorted by total ms):
+  fn                                          calls   total-ms      avg      p50      p95      max
+  company--fetch-candidates                      31    213.673    6.893    5.054   13.657   13.938
+  company--capf-completions                      31    192.523    6.210    4.382   12.986   13.242
+  completion-all-completions                     31    192.128    6.198    4.369   12.972   13.228
+  completion-flex-all-completions                31    191.972    6.193    4.365   12.966   13.219
+  company--preprocess-candidates                  1      0.128    0.128    0.128    0.128    0.128
+  company--transform-candidates                   1      0.000    0.000    0.000    0.000    0.000
+
+--- style=flex query="set" iters=30 cands=2575 ---
+Buffer state: "(set|)"   prefix returned: ("set" "" nil)
+Total (ms): n=30 avg=6.458 min=4.980 p50=5.103 p95=12.231 max=12.425 sum=193.7
+GC during run: count=7, gc-ms=46.2
+Stage breakdown (sorted by total ms):
+  fn                                          calls   total-ms      avg      p50      p95      max
+  company--fetch-candidates                      31    204.389    6.593    5.100   12.227   12.422
+  company--capf-completions                      31    193.569    6.244    4.756   11.878   12.054
+  completion-all-completions                     31    193.346    6.237    4.750   11.870   12.047
+  completion-flex-all-completions                31    193.198    6.232    4.747   11.865   12.041
+  company--preprocess-candidates                  1      0.068    0.068    0.068    0.068    0.068
+  company--transform-candidates                   1      0.000    0.000    0.000    0.000    0.000
+
+--- style=flex query="setq" iters=30 cands=26 ---
+Buffer state: "(setq|)"   prefix returned: ("setq" "" nil)
+Total (ms): n=30 avg=5.204 min=5.095 p50=5.203 p95=5.315 max=5.324 sum=156.1
+GC during run: count=0, gc-ms=0.0
+Stage breakdown (sorted by total ms):
+  fn                                          calls   total-ms      avg      p50      p95      max
+  company--fetch-candidates                      31    161.341    5.205    5.202    5.313    5.322
+  company--capf-completions                      31    161.209    5.200    5.197    5.310    5.318
+  completion-all-completions                     31    161.136    5.198    5.195    5.308    5.316
+  completion-flex-all-completions                31    161.038    5.195    5.192    5.305    5.313
+  company--preprocess-candidates                  1      0.002    0.002    0.002    0.002    0.002
+  company--transform-candidates                   1      0.000    0.000    0.000    0.000    0.000
+
+=== TYPING SEQUENCE (style=flex, seq="setq", iters=30) ===
+State (company-candidates-cache + any fussy-internal cache) carries WITHIN
+an iteration, resets BETWEEN iterations.  Each per-char ms is the cost of
+`company-calculate-candidates' — cache check + (fetch | subsume) + postprocess.
+Frontend (popup draw) is still not measured in batch.
+
+idx  prefix        cands   cache-hits      n      avg      p50      p95      max
+  0  "s"            6494      0/30        30    7.148    9.328   10.424   10.431
+  1  "se"            328     30/30        30    0.056    0.056    0.058    0.060
+  2  "set"           213     30/30        30    0.054    0.055    0.057    0.059
+  3  "setq"            4     30/30        30    0.053    0.052    0.055    0.059
+
+Sum of medians (p50) across chars: 9.491 ms
+Sum of avgs across chars         : 7.310 ms
+GC during typing-sequence pass   : count=15, gc-ms=85.5
+
+=== PROFILER: style=flex query="s" iters=500 ===
+        1628  81% - ...
+        1628  81%  - save-current-buffer
+        1628  81%   - unwind-protect
+        1628  81%    - progn
+        1628  81%     - let
+        1628  81%      - let*
+        1628  81%       - unwind-protect
+        1628  81%        - let
+        1628  81%         - while
+        1628  81%          - let
+        1628  81%           - company--fetch-candidates
+        1628  81%            - company-call-backend-raw
+        1628  81%             - apply
+        1628  81%              - company-capf
+        1628  81%               - company-capf--candidates
+        1185  58%                - company-capf--candidates-1
+        1185  58%                 - company--capf-completions
+        1185  58%                  - completion-all-completions
+        1185  58%                   - completion--nth-completion
+        1185  58%                    - seq-some
+        1185  58%                     - seq-do
+        1185  58%                      - mapc
+        1185  58%                       - #<byte-code-function E3E>
+        1185  58%                        - #<byte-code-function DF5>
+        1185  58%                         - eval
+        1185  58%                          - let
+        1185  58%                           - funcall
+        1185  58%                            - #<byte-code-function 705>
+        1185  58%                             - completion-flex-all-completions
+         655  32%                              - completion--flex-all-completions-1
+         516  25%                                 propertize
+         125   6%                               - all-completions
+          18   0%                                - elisp--shorthand-aware-fboundp
+           3   0%                                   fboundp
+          10   0%                               - completion--flex-cost
+           5   0%                                  completion--flex-cost-gotoh
+         530  26%                              - mapcar
+         464  23%                               - #<byte-code-function D15>
+         464  23%                                  add-face-text-property
+         443  22%                - #<byte-code-function 3E5>
+         327  16%                 - mapcar
+          13   0%                  - #<byte-code-function 443>
+           5   0%                     get-text-property
+         116   5%                 - sort
+           2   0%                    #<primitive-function car-less-than-car>
+         381  18%   Automatic GC
+
+
+=== PROFILER: style=flex query="setq" iters=500 ===
+         712  99% - ...
+         712  99%  - let
+         712  99%   - while
+         712  99%    - let
+         711  99%     - let*
+         711  99%      - unwind-protect
+         711  99%       - let
+         711  99%        - while
+         711  99%         - let
+         711  99%          - company--fetch-candidates
+         711  99%           - company-call-backend-raw
+         711  99%            - apply
+         711  99%             - company-capf
+         711  99%              - company-capf--candidates
+         711  99%               - company-capf--candidates-1
+         711  99%                - company--capf-completions
+         711  99%                 - completion-all-completions
+         711  99%                  - completion--nth-completion
+         705  98%                   - seq-some
+         704  98%                    - seq-do
+         704  98%                     - mapc
+         704  98%                      - #<byte-code-function C06>
+         704  98%                       - #<byte-code-function C6F>
+         703  98%                        - eval
+         703  98%                         - let
+         703  98%                          - funcall
+         703  98%                           - #<byte-code-function C2E>
+         703  98%                            - completion-flex-all-completions
+         478  66%                             - completion--flex-all-completions-1
+         423  59%                                all-completions
+          55   7%                                propertize
+         223  31%                             - mapcar
+         223  31%                              - #<byte-code-function F25>
+         223  31%                                 add-face-text-property
+           2   0%                               make-closure
+           1   0%                          make-closure
+           1   0%                      make-closure
+           3   0%                   - completion--flex-adjust-metadata
+           3   0%                    - #<byte-code-function 472>
+           3   0%                       make-closure
+           2   0%                     make-closure
+           1   0%                   - completion--styles
+           1   0%                    - completion-category-get
+           1   0%                       make-closure
+           1   0%     - company--fetch-candidates
+           1   0%      - company-call-backend-raw
+           1   0%       - apply
+           1   0%        - company-capf
+           1   0%         - company-capf--candidates
+           1   0%          - company-capf--candidates-1
+           1   0%           - company--capf-completions
+           1   0%            - completion-all-completions
+           1   0%             - completion--nth-completion
+           1   0%              - completion--styles
+           1   0%               - completion-category-get
+           1   0%                - seq-some
+           1   0%                   make-closure
+           4   0%   Automatic GC
+
