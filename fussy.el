@@ -1698,14 +1698,7 @@ shorter than `fussy-company-prefix-length', else run fussy as usual."
   (let* ((prefix (nth 0 args))
          (_suffix (nth 1 args))
          (fzf (fussy--fzf-p))
-         ;; Knobs shared by every fussy-active route. Safe to bind on the
-         ;; bypass path too — fussy isn't in `completion-styles' there, so
-         ;; these have no effect.
          (fussy-max-candidate-limit 5000)
-         ;; Same flex-3 prefilter for every route — for the filter-only
-         ;; path it narrows the pool before fzf's `fzf_has_match' check,
-         ;; for the full path it narrows before fzf's DP scoring.
-         ;; (fussy-default-regex-fn 'fussy-pattern-flex-3)
          (gc-cons-threshold (max gc-cons-threshold
                                  fussy-company-gc-cons-threshold))
          ;; Tie-breaker and cache cost more than they save in company's
@@ -1718,8 +1711,6 @@ shorter than `fussy-company-prefix-length', else run fussy as usual."
           (if fzf "|" fussy-OR-component-separator)))
     (cond
      ;; Filter-only path: opt-in via a positive `fussy-company-filter-only-length'.
-     ;; Gate is the same `length<' shape used by the legacy bypass below so
-     ;; the cutover is easy to reason about — just with a different threshold.
      ((and fzf
            (integerp fussy-company-filter-only-length)
            (> fussy-company-filter-only-length 0)
@@ -1727,7 +1718,7 @@ shorter than `fussy-company-prefix-length', else run fussy as usual."
       (let ((fzf-native-filter-only-length fussy-company-filter-only-length)
             (fzf-native-filter-only-logic 'or))
         (apply f args)))
-     ;; Legacy bypass path: short prefix → run completion without fussy.
+     ;; Short prefix → run completion without fussy.
      ((length< prefix fussy-company-prefix-length)
       (let ((completion-styles (remq 'fussy completion-styles))
             (completion-category-overrides nil))
