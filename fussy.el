@@ -616,15 +616,38 @@ Implement `try-completions' interface by using `completion-flex-try-completion'.
 (defvar fussy--filtering-p nil
   "Is `fussy' filtering currently?")
 
+(defcustom fussy-cancel-on-input-fn #'minibufferp
+  "Predicate deciding whether `fussy-all-completions' is abortable.
+
+When this returns non-nil the call is wrapped in `while-no-input'
+and a fresh keystroke arriving mid-fetch returns the previous
+result tagged with the new prefix.  Right for large
+`completing-read'-driven collections (vertico, ivy, icomplete,
+default `*Completions*').
+
+When this returns nil the call runs synchronously and Emacs's
+input loop queues keystrokes for after it returns — same model
+`completion-flex-all-completions' uses.  Right for in-buffer
+completion (`company-mode' popup, `corfu'), where the abort path
+otherwise flickers the popup with stale results during fast typing.
+
+Default `minibufferp' matches that split exactly."
+  :type 'function
+  :group 'fussy)
+
 ;;;###autoload
 (defun fussy-all-completions (string table pred point)
-  "Wrap `fussy-all-completions-v1' with `while-no-input'.
+  "Run `fussy-all-completions-v1', optionally wrapped in `while-no-input'.
+
+Wrapping is gated by `fussy-cancel-on-input-fn'.
 
 If another input arrived -> t -> return current result.
 If input was cancelled -> nil -> return nil.
 If result came back -> :default -> return result."
   (pcase
-      (while-no-input (fussy-all-completions-v1 string table pred point))
+      (if (funcall fussy-cancel-on-input-fn)
+          (while-no-input (fussy-all-completions-v1 string table pred point))
+        (fussy-all-completions-v1 string table pred point))
     ('nil
      (fussy--debug "fn: %S nil" 'fussy-all-completions)
      nil)
