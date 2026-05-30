@@ -1124,7 +1124,7 @@ Used when there's no need to sort. e.g. User hasn't typed anything."
           (sort completions fussy-default-sort-fn)
         completions)
     (let* ((uses-hist (memq fussy-default-sort-fn
-                             '(fussy-histlen->strlen< fussy-histlen<)))
+                            '(fussy-histlen->strlen< fussy-histlen<)))
            (uses-len (memq fussy-default-sort-fn
                            '(fussy-histlen->strlen< fussy-strlen< fussy-strlen>)))
            (hist (when uses-hist (fussy--history-hash-table))))
@@ -1173,7 +1173,7 @@ Used when there's no need to sort. e.g. User hasn't typed anything."
     ;; Schwartzian transform for larger collections to avoid repeated
     ;; property/hash lookups in the sort predicate.
     (let* ((uses-hist (memq fussy-compare-same-score-fn
-                             '(fussy-histlen->strlen< fussy-histlen<)))
+                            '(fussy-histlen->strlen< fussy-histlen<)))
            (uses-len (memq fussy-compare-same-score-fn
                            '(fussy-histlen->strlen< fussy-strlen< fussy-strlen>)))
            (hist (when uses-hist (fussy--history-hash-table))))
