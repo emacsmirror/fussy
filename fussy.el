@@ -1673,10 +1673,24 @@ result: LIST ^a"
     (fussy--sort candidates)))
 
 (defun fussy-company--transformer (f &rest args)
-  "Advise `company--transform-candidates'."
-  (if (length< company-prefix fussy-company-prefix-length)
-      ;; Transform normally for short prefixes.
-      (apply f args)
+  "Advise `company--transform-candidates'.
+
+Mirrors `fussy-company--fetch-candidates': both the filter-only path
+(opt-in via positive `fussy-company-filter-only-length') and the
+bypass path (prefix shorter than `fussy-company-prefix-length') skip
+fussy's score-based transformer, because no `completion-score' is
+attached in those modes."
+  (cond
+   ;; Filter-only path: opt-in via positive `fussy-company-filter-only-length'.
+   ((and (fussy--fzf-p)
+         (integerp fussy-company-filter-only-length)
+         (> fussy-company-filter-only-length 0)
+         (length< company-prefix fussy-company-filter-only-length))
+    (apply f args))
+   ;; Short prefix → transform normally (fussy is stripped upstream).
+   ((length< company-prefix fussy-company-prefix-length)
+    (apply f args))
+   (t
     (let ((company-transformers
            ;; `fussy-score' still needs to do sorting.
            ;; `fussy-fzf-score' sorts on its own.
@@ -1685,7 +1699,7 @@ result: LIST ^a"
              '())))
       ;; Warning: Unused lexical variable `company-transformers'
       (ignore company-transformers)
-      (apply f args))))
+      (apply f args)))))
 
 (defun fussy-company--fetch-candidates (f &rest args)
   "Advise `company--fetch-candidates'.
