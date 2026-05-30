@@ -1698,6 +1698,7 @@ shorter than `fussy-company-prefix-length', else run fussy as usual."
   (let* ((prefix (nth 0 args))
          (_suffix (nth 1 args))
          (fzf (fussy--fzf-p))
+         (fussy-prefer-prefix nil)
          (fussy-max-candidate-limit 5000)
          (gc-cons-threshold (max gc-cons-threshold
                                  fussy-company-gc-cons-threshold))
@@ -1723,9 +1724,7 @@ shorter than `fussy-company-prefix-length', else run fussy as usual."
       (let ((completion-styles (remq 'fussy completion-styles))
             (completion-category-overrides nil))
         (apply f args)))
-     (t
-      (let ((fussy-prefer-prefix nil))
-        (apply f args))))))
+     (t (apply f args)))))
 
 (defun fussy-company--preprocess-candidates (candidates)
   "Advise `company--preprocess-candidates'.
