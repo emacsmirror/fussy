@@ -1075,6 +1075,9 @@ top-N (most candidates tying at the same score for short queries)."
 (defun fussy-setup-fzf ()
   "Set up `fussy' for `fzf-native'."
   (fussy-setup)
+  (require 'fzf-native)
+  (when (fboundp 'fzf-native-ensure-loaded)
+    (fzf-native-ensure-loaded))
   (setq fussy-filter-fn 'fussy-filter-by-scoring)
   (setq fussy-score-ALL-fn 'fussy-fzf-score)
   (setq fussy-use-cache t)
