@@ -1434,8 +1434,7 @@ Use `fussy-score-ALL-fn' for filtering."
        (infix (concat
                (substring beforepoint (car bounds))
                (substring afterpoint 0 (cdr bounds))))
-       (regexp (funcall fussy-default-regex-fn infix))
-       (completion-regexp-list regexp)
+       (completion-regexp-list nil)
        (bufferp (eq 'buffer
                     (alist-get 'category
                                (completion-metadata string table pred))))
