@@ -1752,6 +1752,27 @@ This is to try to avoid a additional sort step."
     (advice-add 'company--preprocess-candidates
                 :override 'fussy-company--preprocess-candidates)))
 
+;; `corfu' integration.
+(defun fussy-corfu--capf-wrapper (f &rest args)
+  "Advise `corfu--capf-wrapper'.
+
+Mirrors `fussy-company--fetch-candidates'."
+  (let ((fussy-max-candidate-limit 5000)
+        (fussy-prefer-prefix nil)
+        (fussy-default-regex-fn 'fussy-pattern-first-letter)
+        (fussy-compare-same-score-fn nil)
+        (fussy-use-cache nil)
+        (gc-cons-threshold (max gc-cons-threshold
+                                fussy-company-gc-cons-threshold)))
+    (apply f args)))
+
+;;;###autoload
+(defun fussy-corfu-setup ()
+  "Set up `corfu' with `fussy'."
+  (with-eval-after-load 'corfu
+    (advice-add 'corfu--capf-wrapper
+                :around 'fussy-corfu--capf-wrapper)))
+
 ;; `fuz' integration.
 (declare-function "fuz-fuzzy-match-skim" "fuz")
 (declare-function "fuz-calc-score-skim" "fuz")

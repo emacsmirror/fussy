@@ -356,14 +356,6 @@ in the cache:
 
 e.g. User types "a" and then "ab". Results from "a" will then be used for
 filtering in "ab".
-
-To use this with ~company~ and ~corfu~, use an advice to reset the cache upon
-new completion requests.
-
-#+begin_src emacs-lisp :tangle yes
-(advice-add 'corfu--capf-wrapper :before 'fussy-wipe-cache)
-(fussy-company-setup)
-#+end_src
 * Benchmarking
   On a Macbook Air M5.
 #+begin_src emacs-lisp :tangle yes
@@ -397,12 +389,12 @@ Using https://github.com/jojojames/emacs-completion-bench
 | `fussy`/`flx-rs`                                                 | 3.995279 |   0 |         0.0 | 34.47 |
 
 The =filter-only= rows are taken with =fussy-company-filter-only-length=
-non-nil (the new default) — fzf-native runs its cheap ~fzf_has_match~
-path instead of full DP scoring, and ~fussy~ stays in the completion
-pipeline so its candidate pool subsumes across keystrokes.  At 95k
-candidates the absolute win over full scoring is modest (~6–10%); it
-widens with pool size because the per-candidate inner loop is ~5×
-cheaper.
+set to a positive integer (opt-in) — fzf-native runs its cheap
+~fzf_has_match~ path instead of full DP scoring, and ~fussy~ stays in
+the completion pipeline so its candidate pool subsumes across
+keystrokes.  At 95k candidates the absolute win over full scoring is
+modest (~6–10%); it widens with pool size because the per-candidate
+inner loop is ~5× cheaper.
 
 * Integrations
 ** Eglot Integration
@@ -420,19 +412,27 @@ Two knobs control how fussy handles short prefixes under company:
 
 | Variable                            | Default | Behavior                                                                 |
 |-------------------------------------+---------+--------------------------------------------------------------------------|
-| ~fussy-company-prefix-length~       | 3       | Bypass cutoff: prefixes strictly shorter than N strip fussy from ~completion-styles~ and run plain completion. |
-| ~fussy-company-filter-only-length~  | 3       | Filter-only cutoff: prefixes strictly shorter than N keep fussy in the pipeline but take fzf-native's cheap ~fzf_has_match~ path.  Overrides the bypass when both apply. Set to ~nil~ to use the bypass instead.  Only meaningful when ~fussy-score-ALL-fn~ is ~fussy-fzf-score~. |
+| ~fussy-company-prefix-length~       | 0       | Bypass cutoff: prefixes strictly shorter than N strip fussy from ~completion-styles~ and run plain completion. Default ~0~ disables the bypass. |
+| ~fussy-company-filter-only-length~  | nil     | Filter-only cutoff: when set to a positive integer N, prefixes strictly shorter than N keep fussy in the pipeline but take fzf-native's cheap ~fzf_has_match~ path.  Overrides the bypass when both apply.  Only meaningful when ~fussy-score-ALL-fn~ is ~fussy-fzf-score~. |
 
-By default short prefixes go through filter-only (`fzf` route) — ~fzf-native~
-does the cheap filtering, fussy stays in ~completion-styles~ so its candidate
-pool subsumes naturally across keystrokes, and the eventual
-full-scoring keystroke (prefix length ≥ N) scans an already-narrow
-set.
+By default neither cutoff fires — fussy runs its full scoring
+pipeline for every prefix.
 
-If you prefer the older bypass behavior — short prefixes skip fussy
+To opt in to the filter-only path (`fzf` route) for short prefixes,
+set ~fussy-company-filter-only-length~ to a small integer (e.g. 3):
+~fzf-native~ does the cheap filtering, fussy stays in
+~completion-styles~ so its candidate pool subsumes naturally across
+keystrokes, and the eventual full-scoring keystroke (prefix length ≥
+N) scans an already-narrow set.
+
+#+begin_src emacs-lisp
+(setq fussy-company-filter-only-length 3)
+#+end_src
+
+To opt in to the bypass path instead — short prefixes skip fussy
 entirely, falling back to plain ~completion-styles~ — set:
 #+begin_src emacs-lisp
-(setq fussy-company-filter-only-length nil)
+(setq fussy-company-prefix-length 3)
 #+end_src
 ** Icomplete/Fido Integration
 ~fido~ uses the built in ~flex~ ~completion-style~ by default. We can advise
@@ -456,14 +456,7 @@ entirely, falling back to plain ~completion-styles~ — set:
 #+end_src
 ** Corfu Integration
 #+begin_src emacs-lisp :tangle yes
-  ;; For cache functionality.
-  (advice-add 'corfu--capf-wrapper :before 'fussy-wipe-cache)
-
-  (add-hook 'corfu-mode-hook
-            (lambda ()
-              (setq-local fussy-max-candidate-limit 5000
-                          fussy-default-regex-fn 'fussy-pattern-first-letter
-                          fussy-prefer-prefix nil)))
+  (fussy-corfu-setup)
 #+end_src
 ** Helm Integration
 Integration with [[https://github.com/emacs-helm/helm][helm]] is possible by
