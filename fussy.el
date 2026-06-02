@@ -688,6 +688,8 @@ If result came back -> :default -> return result."
 
 Implement `all-completions' interface with additional fuzzy / `flx' scoring."
   (fussy--debug "called `fussy-all-completions'...")
+  (when (fussy--fzf-p)
+    (fussy--ensure-fzf-loaded))
   (setf fussy--current-result nil)
   (when (fussy--needs-hist-hash-p)
     (setf fussy--hist-hash (fussy--history-hash-table)))
@@ -1071,13 +1073,24 @@ top-N (most candidates tying at the same score for short queries)."
       (fzf-native-highlight-all sorted fussy--current-infix))
     sorted))
 
+(defvar fussy--fzf-loaded-p nil
+  "Non-nil once `fzf-native' has been loaded on demand by fussy.")
+
+(defun fussy--ensure-fzf-loaded ()
+  "Load `fzf-native' the first time fussy's fzf path is exercised."
+  (unless fussy--fzf-loaded-p
+    (require 'fzf-native)
+    (when (fboundp 'fzf-native-ensure-loaded)
+      (fzf-native-ensure-loaded))
+    (setq fussy--fzf-loaded-p t)))
+
 ;;;###autoload
 (defun fussy-setup-fzf ()
-  "Set up `fussy' for `fzf-native'."
+  "Set up `fussy' for `fzf-native'.
+
+`fzf-native' itself is not loaded here; it is deferred to the first
+`fussy-all-completions' call that actually needs it."
   (fussy-setup)
-  (require 'fzf-native)
-  (when (fboundp 'fzf-native-ensure-loaded)
-    (fzf-native-ensure-loaded))
   (setq fussy-filter-fn 'fussy-filter-by-scoring)
   (setq fussy-score-ALL-fn 'fussy-fzf-score)
   (setq fussy-use-cache t)
