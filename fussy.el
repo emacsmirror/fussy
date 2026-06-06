@@ -1811,7 +1811,12 @@ Mirrors `fussy-company--fetch-candidates'."
 
 ;; `ivy' integration.
 (defvar ivy-flx-limit)
-(declare-function ivy--flx-candidate-string "ivy")
+(defvar ivy-text)
+(defvar ivy--all-candidates)
+(defvar ivy-re-builders-alist)
+(defvar ivy-last)
+(declare-function ivy-state-caller "ivy")
+(declare-function ivy--regex-fuzzy "ivy")
 
 ;;;###autoload
 (defun fussy-ivy-sort (name candidates)
@@ -1838,7 +1843,10 @@ It utilizes `fussy-score-ALL-fn' for batch scoring and respects
                ;; We handle duplicates by keeping a list of candidates per string.
                (map (make-hash-table :test 'equal)))
           (dolist (c to-sort)
-            (let ((s (ivy--flx-candidate-string c)))
+            ;; Candidates from `ivy-read' are strings, or cons cells when
+            ;; the collection is an alist; take the string form for the
+            ;; map key.  Replaces the removed `ivy--flx-candidate-string'.
+            (let ((s (if (consp c) (car c) c)))
               (push c (gethash s map))))
 
           (let* ((strings (let (keys) (maphash (lambda (k _v) (push k keys)) map) keys))
@@ -1866,13 +1874,62 @@ It utilizes `fussy-score-ALL-fn' for batch scoring and respects
        (message "fussy-ivy-sort error: %S" err)
        candidates))))
 
+(defun fussy-ivy-re-filter-advice (orig filter candidates &optional mkpred)
+  "Replace ivy's regex filter with `fzf-native' / `fussy' scoring.
+
+Self-gates by checking the active re-builder via
+`ivy-re-builders-alist': only kicks in when it's `ivy--regex-fuzzy'
+(the value `fussy-ivy-setup' installs as the default).  Explicit
+per-caller entries — `ivy--regex-plus' for grep tools / `swiper',
+`ivy--regex' for raw regex callers — pass through to ORIG so their
+shell tools / line matchers receive the regex they expect.
+
+For multi-word and fzf-extended-syntax queries (`a b' = AND,
+`a | b' = OR, `!ext' = exclude, `^pre' / `suf$' / `\\='exact'),
+`ivy--regex-fuzzy''s output regex is more restrictive than
+fzf-native's matcher — without this advice, candidates fzf would
+score as matches are silently dropped before `fussy-ivy-sort'
+sees them.
+
+Per fzf-native's pattern grammar (see fzf.c:`fzf_parse_pattern')
+a standalone whitespace-surrounded `|' is the only operator that
+widens the match set versus a prefix of the query.  When the query
+contains such a `|', ivy's incremental filter against
+`ivy--old-cands' would miss items matching only the right side of
+the OR — so this advice forces use of `ivy--all-candidates' in
+that case.  All other extended operators only narrow, so the
+incremental CANDIDATES passed by ivy is safe to score directly."
+  (let* ((caller (ivy-state-caller ivy-last))
+         (rebuilder (or (cdr (assq caller ivy-re-builders-alist))
+                        (cdr (assq t       ivy-re-builders-alist)))))
+    (cond
+     ;; Empty input -> return CANDIDATES
+     ((or (null ivy-text) (string-empty-p ivy-text))
+      candidates)
+     ;; Take over `ivy--regex-fuzzy'.
+     ;; If | is in query, always use full candidate set.
+     ((eq rebuilder #'ivy--regex-fuzzy)
+      (let ((source-cands
+             (if (member "|" (split-string ivy-text))
+                 ivy--all-candidates
+               candidates)))
+        (or (fussy-outer-score source-cands ivy-text)
+            ;; Empty result: pass nil through so ivy shows "no match".
+            nil)))
+     ;; Fall through to original function.
+     (t
+      (funcall orig filter candidates mkpred)))))
+
 ;;;###autoload
 (defun fussy-ivy-setup ()
   "Set up `fussy' for `ivy'."
   (interactive)
-  (require 'ivy)
-  (advice-add 'ivy--flx-sort :override #'fussy-ivy-sort)
-  (setq ivy-re-builders-alist '((t . ivy--regex-fuzzy))))
+  (when (require 'ivy nil t)
+    (advice-add 'ivy--flx-sort  :override #'fussy-ivy-sort)
+    (advice-add 'ivy--re-filter :around   #'fussy-ivy-re-filter-advice)
+    ;; Only update the t (default) entry — preserves any per-caller
+    ;; overrides the user has set in either order.
+    (setf (alist-get t ivy-re-builders-alist) #'ivy--regex-fuzzy)))
 
 (defun fussy-flx-rs-score (str query &rest args)
   "Score STR for QUERY with ARGS using `flx-rs-score'."

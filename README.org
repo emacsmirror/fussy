@@ -473,6 +473,7 @@ https://github.com/emacs-helm/helm/blob/master/helm-mode.el#L269
 Since ~ivy~ doesn't support ~completion-styles~, we have to hack ~fussy~ into it.
 We can use ~fussy-ivy-setup~ which advises ~ivy--flx-sort~ and replaces it with
 an optimized version that uses ~fussy~'s batch-scoring backends.
+We also override ~ivy--re-filter~ to control filtering.
 
 #+begin_src emacs-lisp :tangle yes
   (fussy-ivy-setup)
