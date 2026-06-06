@@ -881,6 +881,14 @@ Examples (with fussy-OR-component-separator \"|\" and
 
 (defun fussy-outer-score (candidates string &optional cache)
   "Function used to wrap `fussy-score-ALL-fn'."
+  ;; Lazy-load `fzf-native' on first use of the fzf scoring backend.
+  ;; `fussy-all-completions-v1' already does this for the
+  ;; completion-styles path; do it here too so direct callers — the
+  ;; ivy filter advice and `fussy-ivy-sort' — also lazy-load before
+  ;; calling `fussy-fzf-score', which silently returns nil when
+  ;; `fzf-native-score-all' is unbound (showing zero candidates).
+  (when (fussy--fzf-p)
+    (fussy--ensure-fzf-loaded))
   (funcall fussy-score-ALL-fn candidates (fussy-normalize-query string) cache))
 
 (defvar fussy--last-was-filter-only nil
